@@ -1,0 +1,63 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "b787fcf9-f09c-4622-b0a7-a9065511008c",
+  "packageName": "com.celyavox.phone",
+  "developer": {
+    "name": "CelyaVox",
+    "websiteUrl": "https://celyavox.celya.fr/phone/",
+    "privacyUrl": "https://celyavox.celya.fr/phone/privacy.html",
+    "termsOfUseUrl": "https://celyavox.celya.fr/phone/terms.html"
+  },
+  "name": {
+    "short": "CelyaVox Phone",
+    "full": "CelyaVox - WebRTC SIP Phone"
+  },
+  "description": {
+    "short": "Application téléphonique SIP WebRTC complète",
+    "full": "CelyaVox est une application téléphonique SIP WebRTC complète basée sur navigateur pour Asterisk. Passez et recevez des appels audio/vidéo directement depuis Teams."
+  },
+  "icons": {
+    "outline": "icons/outline-32.png",
+    "color": "icons/color-192.png"
+  },
+  "accentColor": "#4A90E2",
+  "configurableTabs": [
+    {
+      "configurationUrl": "https://celyavox.celya.fr/phone/teams-config.html",
+      "canUpdateConfiguration": true,
+      "scopes": [
+        "team",
+        "groupchat"
+      ]
+    }
+  ],
+  "staticTabs": [
+    {
+      "entityId": "phoneTab",
+      "name": "Téléphone",
+      "contentUrl": "https://celyavox.celya.fr/phone/index.html",
+      "websiteUrl": "https://celyavox.celya.fr/phone/index.html",
+      "scopes": [
+        "personal"
+      ]
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "celyavox.celya.fr"
+  ],
+  "activities": {
+    "activityTypes": [
+      {
+        "type": "incomingCall",
+        "description": "Notification d'appel entrant",
+        "templateText": "Appel entrant de {caller}"
+      }
+    ]
+  }
+}

@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Politique de Confidentialité - CelyaVox</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #4A90E2;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            border-bottom: 3px solid #4A90E2;
+            padding-bottom: 15px;
+        }
+        
+        .last-update {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+        
+        h2 {
+            color: #333;
+            font-size: 1.8em;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        h3 {
+            color: #555;
+            font-size: 1.3em;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+        
+        ul, ol {
+            margin-left: 30px;
+            margin-bottom: 15px;
+        }
+        
+        li {
+            margin-bottom: 8px;
+        }
+        
+        .highlight {
+            background-color: #e8f4fd;
+            padding: 15px;
+            border-left: 4px solid #4A90E2;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .highlight strong {
+            color: #2c5f8d;
+        }
+        
+        .warning {
+            background-color: #fff3cd;
+            padding: 15px;
+            border-left: 4px solid #ffc107;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .warning strong {
+            color: #856404;
+        }
+        
+        .section {
+            margin-bottom: 25px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        table th {
+            background-color: #4A90E2;
+            color: white;
+        }
+        
+        table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        a {
+            color: #4A90E2;
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .data-icon {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            h2 {
+                font-size: 1.5em;
+            }
+            
+            table {
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 Politique de Confidentialité</h1>
+        <p class="last-update">Dernière mise à jour : 10 décembre 2025</p>
+        
+        <div class="highlight">
+            <strong>Notre engagement :</strong> CelyaVox respecte votre vie privée et s'engage à protéger vos données personnelles. 
+            Cette politique explique comment nous collectons, utilisons et protégeons vos informations.
+        </div>
+
+        <div class="section">
+            <h2>1. Introduction</h2>
+            <p>
+                CelyaVox est une application téléphonique SIP WebRTC qui fonctionne entièrement dans votre navigateur. 
+                Cette politique de confidentialité décrit nos pratiques concernant la collecte, l'utilisation et la protection de vos données personnelles 
+                lors de l'utilisation de l'application CelyaVox ("l'Application").
+            </p>
+            <p>
+                <strong>Responsable du traitement :</strong> CelyaVox
+            </p>
+        </div>
+
+        <div class="section">
+            <h2>2. Données Collectées</h2>
+            
+            <h3>2.1 Données Stockées Localement</h3>
+            <p>
+                L'Application stocke les données suivantes <strong>exclusivement dans le stockage local de votre navigateur</strong> 
+                (localStorage). Ces données ne quittent jamais votre appareil sauf pour communiquer avec votre serveur SIP :
+            </p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Type de Données</th>
+                        <th>Description</th>
+                        <th>Finalité</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Configuration SIP</td>
+                        <td>Serveur, port, domaine, chemin WebSocket</td>
+                        <td>Connexion au serveur téléphonique</td>
+                    </tr>
+                    <tr>
+                        <td>Identifiants</td>
+                        <td>Nom d'utilisateur et mot de passe SIP</td>
+                        <td>Authentification sur le serveur</td>
+                    </tr>
+                    <tr>
+                        <td>Profil utilisateur</td>
+                        <td>Nom complet, numéro d'extension</td>
+                        <td>Affichage et identification</td>
+                    </tr>
+                    <tr>
+                        <td>Contacts</td>
+                        <td>Liste de contacts avec noms et numéros</td>
+                        <td>Gestion des contacts et appels</td>
+                    </tr>
+                    <tr>
+                        <td>Historique d'appels</td>
+                        <td>Numéros, dates, durées, statuts</td>
+                        <td>Journal et statistiques d'appels</td>
+                    </tr>
+                    <tr>
+                        <td>Préférences</td>
+                        <td>Thème, langue, paramètres audio/vidéo</td>
+                        <td>Personnalisation de l'interface</td>
+                    </tr>
+                    <tr>
+                        <td>Enregistrements</td>
+                        <td>Fichiers audio/vidéo (si activés)</td>
+                        <td>Conservation des conversations</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="highlight">
+                <strong>Important :</strong> Toutes ces données sont stockées <strong>localement sur votre appareil</strong> et ne sont jamais 
+                envoyées à nos serveurs. Nous n'avons pas accès à ces informations.
+            </div>
+            
+            <h3>2.2 Données de Communication</h3>
+            <p>
+                Lors de l'utilisation des fonctionnalités de communication :
+            </p>
+            <ul>
+                <li><strong>Signalisation SIP :</strong> Les données de signalisation (établissement d'appel, messages) transitent via votre serveur SIP configuré</li>
+                <li><strong>Flux média :</strong> Les flux audio/vidéo peuvent transiter en peer-to-peer ou via des serveurs STUN/TURN</li>
+                <li><strong>Messages instantanés :</strong> Les messages sont transmis via votre serveur SIP ou XMPP selon votre configuration</li>
+            </ul>
+            
+            <h3>2.3 Données de Navigation</h3>
+            <p>
+                L'Application peut utiliser les technologies suivantes :
+            </p>
+            <ul>
+                <li><strong>Cookies de session :</strong> Pour maintenir votre session active</li>
+                <li><strong>LocalStorage :</strong> Pour stocker vos paramètres et données (voir 2.1)</li>
+                <li><strong>IndexedDB :</strong> Pour stocker des données volumineuses (enregistrements)</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>3. Utilisation des Données</h2>
+            
+            <h3>3.1 Finalités</h3>
+            <p>Vos données sont utilisées uniquement pour :</p>
+            <ul>
+                <li>Permettre la connexion et l'authentification au serveur SIP</li>
+                <li>Établir et maintenir des communications audio/vidéo</li>
+                <li>Afficher et gérer votre liste de contacts</li>
+                <li>Conserver l'historique de vos communications</li>
+                <li>Personnaliser votre expérience utilisateur</li>
+                <li>Enregistrer vos appels (si vous activez cette fonctionnalité)</li>
+            </ul>
+            
+            <h3>3.2 Base Légale</h3>
+            <p>Le traitement de vos données repose sur :</p>
+            <ul>
+                <li><strong>Votre consentement :</strong> En utilisant l'Application et en fournissant vos informations</li>
+                <li><strong>L'exécution du contrat :</strong> Nécessaire pour fournir les services de communication</li>
+                <li><strong>Intérêt légitime :</strong> Amélioration et sécurisation du service</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>4. Partage des Données</h2>
+            
+            <h3>4.1 Aucun Partage avec des Tiers</h3>
+            <div class="highlight">
+                <strong>Politique claire :</strong> Nous ne vendons, ne louons et ne partageons jamais vos données personnelles avec des tiers 
+                à des fins commerciales ou marketing.
+            </div>
+            
+            <h3>4.2 Transmission aux Serveurs Nécessaires</h3>
+            <p>Vos données sont transmises uniquement aux services suivants, nécessaires au fonctionnement :</p>
+            <ul>
+                <li><strong>Votre serveur SIP :</strong> Pour l'établissement et la gestion des communications</li>
+                <li><strong>Serveurs STUN/TURN :</strong> Pour faciliter la connectivité réseau (par défaut : stun.l.google.com)</li>
+                <li><strong>Serveur XMPP :</strong> Si vous utilisez XMPP pour la messagerie instantanée</li>
+            </ul>
+            
+            <div class="warning">
+                <strong>Note importante :</strong> Ces serveurs sont gérés par votre administrateur système ou des tiers (ex: Google pour STUN). 
+                Consultez leurs politiques de confidentialité respectives pour connaître leur traitement des données.
+            </div>
+            
+            <h3>4.3 Microsoft Teams</h3>
+            <p>
+                Si vous utilisez CelyaVox via Microsoft Teams :
+            </p>
+            <ul>
+                <li>L'Application s'exécute dans un iframe contrôlé par Microsoft</li>
+                <li>Microsoft peut avoir accès à certaines métadonnées d'utilisation</li>
+                <li>Les données de communication ne transitent PAS par Microsoft</li>
+                <li>Consultez la <a href="https://privacy.microsoft.com" target="_blank">Politique de Confidentialité Microsoft</a></li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>5. Sécurité des Données</h2>
+            
+            <h3>5.1 Mesures de Protection</h3>
+            <p>Nous mettons en œuvre les mesures suivantes pour protéger vos données :</p>
+            <ul>
+                <li><strong>HTTPS obligatoire :</strong> Toutes les communications sont chiffrées en transit</li>
+                <li><strong>WebRTC sécurisé :</strong> Les flux média utilisent SRTP (chiffrement end-to-end)</li>
+                <li><strong>Stockage local :</strong> Données stockées uniquement sur votre appareil</li>
+                <li><strong>Pas de serveur central :</strong> Aucune base de données centralisée de vos informations</li>
+                <li><strong>Authentification :</strong> Connexion sécurisée au serveur SIP via TLS/WSS</li>
+            </ul>
+            
+            <h3>5.2 Vos Responsabilités</h3>
+            <p>Pour garantir la sécurité de vos données :</p>
+            <ul>
+                <li>Ne partagez jamais vos identifiants SIP</li>
+                <li>Utilisez un mot de passe fort et unique</li>
+                <li>Déconnectez-vous sur les ordinateurs partagés</li>
+                <li>Maintenez votre navigateur à jour</li>
+                <li>Protégez vos enregistrements d'appels locaux</li>
+            </ul>
+            
+            <h3>5.3 Limitations</h3>
+            <div class="warning">
+                <strong>Attention :</strong> Bien que nous mettions en œuvre des mesures de sécurité, aucun système n'est infaillible. 
+                Vous reconnaissez que la transmission de données sur Internet comporte des risques inhérents.
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>6. Conservation des Données</h2>
+            
+            <h3>6.1 Durée de Conservation</h3>
+            <p>
+                Les données sont conservées <strong>localement sur votre appareil</strong> jusqu'à ce que vous :
+            </p>
+            <ul>
+                <li>Supprimiez manuellement les données via l'interface de l'Application</li>
+                <li>Effaciez les données de votre navigateur</li>
+                <li>Désinstalliez l'Application</li>
+                <li>Supprimiez votre compte SIP</li>
+            </ul>
+            
+            <h3>6.2 Suppression Automatique</h3>
+            <p>
+                L'Application peut automatiquement supprimer :
+            </p>
+            <ul>
+                <li>L'historique d'appels ancien (selon vos paramètres de rétention)</li>
+                <li>Les enregistrements temporaires après téléchargement</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>7. Vos Droits (RGPD)</h2>
+            
+            <p>Conformément au Règlement Général sur la Protection des Données (RGPD), vous disposez des droits suivants :</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Droit</th>
+                        <th>Description</th>
+                        <th>Comment l'exercer</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Accès</strong></td>
+                        <td>Obtenir une copie de vos données</td>
+                        <td>Consultez localStorage dans votre navigateur ou exportez depuis l'Application</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Rectification</strong></td>
+                        <td>Corriger vos données inexactes</td>
+                        <td>Modifiez vos informations dans les paramètres de l'Application</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Effacement</strong></td>
+                        <td>Supprimer vos données</td>
+                        <td>Supprimez les données via l'Application ou effacez le cache du navigateur</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Limitation</strong></td>
+                        <td>Limiter le traitement</td>
+                        <td>Désactivez certaines fonctionnalités dans les paramètres</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Portabilité</strong></td>
+                        <td>Récupérer vos données dans un format structuré</td>
+                        <td>Exportez vos données via la fonction d'export de l'Application</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Opposition</strong></td>
+                        <td>Vous opposer au traitement</td>
+                        <td>Cessez d'utiliser l'Application</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="highlight">
+                <strong>Facilité d'exercice :</strong> Puisque toutes vos données sont stockées localement, vous avez un contrôle total 
+                et immédiat sur vos informations, sans avoir besoin de nous contacter.
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>8. Cookies et Technologies Similaires</h2>
+            
+            <h3>8.1 Cookies Utilisés</h3>
+            <p>L'Application utilise les technologies suivantes :</p>
+            <ul>
+                <li><strong>LocalStorage :</strong> Stockage persistant de vos paramètres et données (voir section 2.1)</li>
+                <li><strong>SessionStorage :</strong> Données temporaires de session (effacées à la fermeture)</li>
+                <li><strong>IndexedDB :</strong> Base de données locale pour les enregistrements d'appels</li>
+            </ul>
+            
+            <h3>8.2 Cookies Tiers</h3>
+            <p>
+                L'Application ne définit pas de cookies tiers. Cependant, des services externes peuvent définir leurs propres cookies :
+            </p>
+            <ul>
+                <li>Microsoft Teams (si utilisé via Teams)</li>
+                <li>Google (serveurs STUN par défaut)</li>
+            </ul>
+            
+            <h3>8.3 Gestion des Cookies</h3>
+            <p>
+                Vous pouvez gérer ou supprimer les données locales via les paramètres de votre navigateur. 
+                <strong>Attention :</strong> La suppression des données locales effacera votre configuration et votre historique.
+            </p>
+        </div>
+
+        <div class="section">
+            <h2>9. Enregistrements d'Appels</h2>
+            
+            <div class="warning">
+                <strong>⚠️ Obligations Légales :</strong>
+                <ul>
+                    <li>L'enregistrement de conversations peut être soumis à des lois strictes selon votre pays</li>
+                    <li>Dans de nombreux pays, vous DEVEZ informer tous les participants qu'ils sont enregistrés</li>
+                    <li>L'enregistrement sans consentement peut être illégal et sanctionné pénalement</li>
+                    <li>Vous êtes seul responsable du respect des lois applicables</li>
+                </ul>
+            </div>
+            
+            <h3>9.1 Stockage des Enregistrements</h3>
+            <p>
+                Les enregistrements d'appels sont :
+            </p>
+            <ul>
+                <li>Stockés <strong>uniquement</strong> sur votre appareil local</li>
+                <li>Accessibles uniquement par vous</li>
+                <li>Non transmis à nos serveurs ou à des tiers</li>
+                <li>Sous votre entière responsabilité en termes de sécurité et conformité légale</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>10. Transferts Internationaux</h2>
+            
+            <p>
+                L'Application fonctionne localement dans votre navigateur. Cependant, vos communications peuvent transiter par :
+            </p>
+            <ul>
+                <li><strong>Votre serveur SIP :</strong> Localisé selon votre configuration (peut être dans un autre pays)</li>
+                <li><strong>Serveurs STUN/TURN :</strong> Peuvent être localisés internationalement</li>
+            </ul>
+            
+            <p>
+                Si des données sont transférées hors de l'Union Européenne, nous nous efforçons de garantir un niveau de protection adéquat, 
+                bien que cela dépende principalement de votre configuration et de vos fournisseurs de services.
+            </p>
+        </div>
+
+        <div class="section">
+            <h2>11. Protection des Mineurs</h2>
+            
+            <p>
+                L'Application n'est pas destinée aux personnes de moins de 16 ans. Nous ne collectons pas sciemment de données personnelles 
+                auprès de mineurs sans le consentement parental approprié.
+            </p>
+            <p>
+                Si vous pensez que nous avons collecté des informations d'un mineur sans consentement approprié, veuillez nous contacter 
+                immédiatement pour que nous puissions supprimer ces informations.
+            </p>
+        </div>
+
+        <div class="section">
+            <h2>12. Modifications de la Politique</h2>
+            
+            <p>
+                Nous pouvons modifier cette politique de confidentialité à tout moment. Les modifications entrent en vigueur dès leur publication 
+                sur cette page.
+            </p>
+            <p>
+                En cas de modification substantielle, nous vous en informerons via :
+            </p>
+            <ul>
+                <li>Une notification dans l'Application</li>
+                <li>La mise à jour de la date "Dernière mise à jour" en haut de cette page</li>
+            </ul>
+            <p>
+                Nous vous encourageons à consulter régulièrement cette page pour rester informé de nos pratiques en matière de confidentialité.
+            </p>
+        </div>
+
+        <div class="section">
+            <h2>13. Autorité de Contrôle</h2>
+            
+            <p>
+                Si vous considérez que vos droits en matière de protection des données ne sont pas respectés, vous avez le droit de déposer 
+                une réclamation auprès d'une autorité de contrôle compétente :
+            </p>
+            <p>
+                <strong>Commission Nationale de l'Informatique et des Libertés (CNIL)</strong><br>
+                3 Place de Fontenoy<br>
+                TSA 80715<br>
+                75334 PARIS CEDEX 07<br>
+                Tél : +33 (0)1 53 73 22 22<br>
+                Site : <a href="https://www.cnil.fr" target="_blank">www.cnil.fr</a>
+            </p>
+        </div>
+
+        <div class="section">
+            <h2>14. Contact</h2>
+            
+            <p>
+                Pour toute question concernant cette politique de confidentialité ou pour exercer vos droits, vous pouvez nous contacter :
+            </p>
+            <ul>
+                <li><strong>Par email :</strong> Contactez votre administrateur système</li>
+                <li><strong>Via l'Application :</strong> Utilisez la fonction de support intégrée</li>
+            </ul>
+            
+            <p>
+                Nous nous engageons à répondre à vos demandes dans les meilleurs délais et, en tout état de cause, dans le délai d'un mois 
+                prévu par le RGPD.
+            </p>
+        </div>
+
+        <div class="section">
+            <h2>15. Résumé de nos Engagements</h2>
+            
+            <div class="highlight">
+                <strong>En résumé, nous nous engageons à :</strong>
+                <ul>
+                    <li>✅ Ne jamais vendre vos données personnelles</li>
+                    <li>✅ Stocker vos données localement sur votre appareil uniquement</li>
+                    <li>✅ Chiffrer toutes les communications en transit</li>
+                    <li>✅ Vous donner un contrôle total sur vos données</li>
+                    <li>✅ Ne pas créer de profil utilisateur centralisé</li>
+                    <li>✅ Respecter votre vie privée et vos droits RGPD</li>
+                    <li>✅ Être transparent sur nos pratiques</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>CelyaVox</strong> - Application Téléphonique SIP WebRTC</p>
+            <p>© 2025 CelyaVox. Tous droits réservés.</p>
+            <p>
+                <a href="index.html">Retour à l'application</a> | 
+                <a href="terms.html">Conditions d'Utilisation</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

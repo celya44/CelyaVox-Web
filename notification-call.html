@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<!--
+  SipApp - Electron Desktop Application - Incoming Call Notification
+  
+  Copyright (C) 2025 CELYA <debian@celya.fr>
+  
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published
+  by the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU Affero General Public License for more details.
+  
+  You should have received a copy of the GNU Affero General Public License
+  along with this program. If not, see <https://www.gnu.org/licenses/>.
+-->
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appel entrant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-app-region: drag;
+        }
+        
+        .container {
+            text-align: center;
+            padding: 20px;
+            -webkit-app-region: no-drag;
+        }
+        
+        .icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            animation: ring 1s ease-in-out infinite;
+        }
+        
+        @keyframes ring {
+            0%, 100% { transform: rotate(-15deg); }
+            50% { transform: rotate(15deg); }
+        }
+        
+        h1 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .caller {
+            font-size: 16px;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+        
+        button {
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        button:hover {
+            transform: scale(1.05);
+        }
+        
+        button:active {
+            transform: scale(0.95);
+        }
+        
+        .answer {
+            background: #10b981;
+            color: white;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+        
+        .answer:hover {
+            background: #059669;
+        }
+        
+        .reject {
+            background: #ef4444;
+            color: white;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+        }
+        
+        .reject:hover {
+            background: #dc2626;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">📞</div>
+        <h1>Appel entrant</h1>
+        <div class="caller" id="caller-name">Numéro inconnu</div>
+        <div class="caller" id="caller-number" style="font-size: 14px; opacity: 0.8; margin-top: 5px;"></div>
+        <div class="buttons">
+            <button class="answer" id="btn-answer">
+                <span>✓</span>
+                <span>Décrocher</span>
+            </button>
+            <button class="reject" id="btn-reject">
+                <span>✕</span>
+                <span>Raccrocher</span>
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        // Lire les infos de l'appelant depuis l'URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const callerInfo = urlParams.get('caller');
+        if (callerInfo) {
+            const decoded = decodeURIComponent(callerInfo);
+            const parts = decoded.split('|');
+            const callerName = parts[0] || 'Numéro inconnu';
+            const callerNumber = parts[1] || '';
+            
+            document.getElementById('caller-name').textContent = callerName;
+            if (callerNumber && callerNumber !== callerName) {
+                document.getElementById('caller-number').textContent = callerNumber;
+            }
+            console.log('📞 Caller info from URL - Name:', callerName, 'Number:', callerNumber);
+        }
+        
+        // Utiliser l'API preload exposée
+        if (window.electron) {
+            // Décrocher
+            document.getElementById('btn-answer').addEventListener('click', () => {
+                console.log('Bouton Décrocher cliqué');
+                window.electron.send('answer-call');
+                // Fermer la fenêtre après un court délai pour laisser l'événement être envoyé
+                setTimeout(() => {
+                    window.close();
+                }, 50);
+            });
+            
+            // Raccrocher
+            document.getElementById('btn-reject').addEventListener('click', () => {
+                console.log('Bouton Raccrocher cliqué');
+                window.electron.send('reject-call');
+                // Fermer la fenêtre après un court délai pour laisser l'événement être envoyé
+                setTimeout(() => {
+                    window.close();
+                }, 50);
+            });
+        } else {
+            console.error('window.electron non disponible');
+        }
+    </script>
+</body>
+</html>

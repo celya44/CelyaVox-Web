@@ -1,0 +1,54 @@
+/* Teams-specific theme adaptations */
+
+/* Variable de thème pour Teams */
+:root[data-theme="teams-dark"] {
+    --teams-bg-primary: #292929;
+    --teams-bg-secondary: #1f1f1f;
+    --teams-text-primary: #ffffff;
+    --teams-text-secondary: #c7c7c7;
+    --teams-accent: #6264a7;
+}
+
+:root[data-theme="teams-light"] {
+    --teams-bg-primary: #f5f5f5;
+    --teams-bg-secondary: #ffffff;
+    --teams-text-primary: #252423;
+    --teams-text-secondary: #605e5c;
+    --teams-accent: #6264a7;
+}
+
+/* Adaptations pour l'environnement Teams */
+body.teams-embedded {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+/* Masquer certains éléments dans Teams si nécessaire */
+body.teams-embedded .electron-only {
+    display: none !important;
+}
+
+/* Ajustements de l'interface pour Teams */
+body.teams-embedded #mainView {
+    height: 100vh;
+    border: none;
+}
+
+/* Style pour le badge Teams */
+.teams-badge {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background-color: var(--teams-accent, #6264a7);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    z-index: 10000;
+    opacity: 0.7;
+}
+
+.teams-badge:hover {
+    opacity: 1;
+}

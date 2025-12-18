@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Configuration CelyaVox Teams</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #464775;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #666;
+            line-height: 1.6;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #4A90E2;
+        }
+        .button-group {
+            margin-top: 30px;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .btn-primary {
+            background-color: #4A90E2;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #357ABD;
+        }
+        .btn-secondary {
+            background-color: #e0e0e0;
+            color: #333;
+        }
+        .btn-secondary:hover {
+            background-color: #d0d0d0;
+        }
+        .info-box {
+            background-color: #E8F4FD;
+            border-left: 4px solid #4A90E2;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .info-box p {
+            margin: 0;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Configuration CelyaVox pour Teams</h1>
+        <p>Configurez votre téléphone SIP pour l'utiliser dans Microsoft Teams</p>
+
+        <div class="info-box">
+            <p><strong>Note:</strong> Ces paramètres seront sauvegardés et utilisés lorsque vous accéderez à CelyaVox depuis Teams.</p>
+        </div>
+
+        <form id="configForm">
+            <div class="form-group">
+                <label for="displayName">Nom d'affichage</label>
+                <input type="text" id="displayName" placeholder="Ex: Jean Dupont" value="">
+            </div>
+
+            <div class="form-group">
+                <label for="wssServer">Serveur WebSocket</label>
+                <input type="text" id="wssServer" placeholder="Ex: pbx.exemple.com" value="">
+            </div>
+
+            <div class="form-group">
+                <label for="wsPort">Port WebSocket</label>
+                <input type="text" id="wsPort" placeholder="Ex: 8089" value="8089">
+            </div>
+
+            <div class="form-group">
+                <label for="sipDomain">Domaine SIP</label>
+                <input type="text" id="sipDomain" placeholder="Ex: pbx.exemple.com" value="">
+            </div>
+
+            <div class="form-group">
+                <label for="theme">Thème</label>
+                <select id="theme">
+                    <option value="auto">Automatique (Teams)</option>
+                    <option value="light">Clair</option>
+                    <option value="dark">Sombre</option>
+                </select>
+            </div>
+
+            <div class="button-group">
+                <button type="button" class="btn-secondary" id="cancelBtn">Annuler</button>
+                <button type="button" class="btn-primary" id="saveBtn">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+
+    <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
+    <script>
+        // Initialiser Teams SDK
+        microsoftTeams.app.initialize().then(() => {
+            console.log("Teams SDK initialized");
+
+            // Charger les paramètres existants si disponibles
+            microsoftTeams.pages.config.registerOnSaveHandler((saveEvent) => {
+                const displayName = document.getElementById('displayName').value;
+                const wssServer = document.getElementById('wssServer').value;
+                const wsPort = document.getElementById('wsPort').value;
+                const sipDomain = document.getElementById('sipDomain').value;
+                const theme = document.getElementById('theme').value;
+
+                // Valider les champs requis
+                if (!displayName || !wssServer || !sipDomain) {
+                    alert('Veuillez remplir tous les champs requis');
+                    saveEvent.notifyFailure('Configuration incomplète');
+                    return;
+                }
+
+                // Créer l'objet de configuration
+                const config = {
+                    displayName,
+                    wssServer,
+                    wsPort,
+                    sipDomain,
+                    theme
+                };
+
+                // URL de contenu avec les paramètres encodés
+                const contentUrl = `${window.location.origin}${window.location.pathname.replace('teams-config.html', 'index.html')}?teamsConfig=${encodeURIComponent(JSON.stringify(config))}`;
+                const websiteUrl = contentUrl;
+
+                microsoftTeams.pages.config.setConfig({
+                    contentUrl: contentUrl,
+                    websiteUrl: websiteUrl,
+                    suggestedDisplayName: "CelyaVox Phone",
+                    entityId: "celyavox-phone-" + Date.now()
+                });
+
+                saveEvent.notifySuccess();
+            });
+
+            // Activer le bouton Enregistrer
+            microsoftTeams.pages.config.setValidityState(true);
+
+            // Gérer le bouton Enregistrer
+            document.getElementById('saveBtn').addEventListener('click', () => {
+                microsoftTeams.pages.config.setValidityState(true);
+            });
+
+            // Gérer le bouton Annuler
+            document.getElementById('cancelBtn').addEventListener('click', () => {
+                microsoftTeams.pages.config.setValidityState(false);
+            });
+
+            // Détecter les changements pour activer le bouton Enregistrer de Teams
+            const inputs = document.querySelectorAll('input, select');
+            inputs.forEach(input => {
+                input.addEventListener('input', () => {
+                    const displayName = document.getElementById('displayName').value;
+                    const wssServer = document.getElementById('wssServer').value;
+                    const sipDomain = document.getElementById('sipDomain').value;
+                    
+                    const isValid = displayName && wssServer && sipDomain;
+                    microsoftTeams.pages.config.setValidityState(isValid);
+                });
+            });
+
+            // Charger la configuration existante si disponible
+            microsoftTeams.pages.getConfig().then((config) => {
+                if (config.contentUrl) {
+                    try {
+                        const urlParams = new URLSearchParams(new URL(config.contentUrl).search);
+                        const teamsConfig = urlParams.get('teamsConfig');
+                        if (teamsConfig) {
+                            const savedConfig = JSON.parse(decodeURIComponent(teamsConfig));
+                            document.getElementById('displayName').value = savedConfig.displayName || '';
+                            document.getElementById('wssServer').value = savedConfig.wssServer || '';
+                            document.getElementById('wsPort').value = savedConfig.wsPort || '8089';
+                            document.getElementById('sipDomain').value = savedConfig.sipDomain || '';
+                            document.getElementById('theme').value = savedConfig.theme || 'auto';
+                        }
+                    } catch (e) {
+                        console.error('Error loading saved config:', e);
+                    }
+                }
+            });
+
+            // Appliquer le thème Teams
+            microsoftTeams.app.getContext().then((context) => {
+                if (context.app.theme === 'dark') {
+                    document.body.style.backgroundColor = '#2d2d2d';
+                    document.querySelector('.container').style.backgroundColor = '#1f1f1f';
+                    document.querySelector('.container').style.color = '#fff';
+                }
+            });
+        }).catch((error) => {
+            console.error("Teams SDK initialization error:", error);
+            // Fallback pour test en dehors de Teams
+            document.getElementById('saveBtn').addEventListener('click', () => {
+                alert('Configuration enregistrée (mode test)');
+            });
+        });
+    </script>
+</body>
+</html>

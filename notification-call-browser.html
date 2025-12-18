@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<!--
+  SipApp - Web Application - Incoming Call Notification (Browser Version)
+  
+  Copyright (C) 2025 CELYA <debian@celya.fr>
+  
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published
+  by the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU Affero General Public License for more details.
+  
+  You should have received a copy of the GNU Affero General Public License
+  along with this program. If not, see <https://www.gnu.org/licenses/>.
+-->
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Notifications - CelyaVox</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            text-align: center;
+            opacity: 0.8;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .status {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        
+        .status-label {
+            font-weight: 600;
+            opacity: 0.9;
+        }
+        
+        .status-value {
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 4px 10px;
+            border-radius: 5px;
+            font-size: 13px;
+        }
+        
+        .buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        button {
+            padding: 15px 25px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+        }
+        
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-primary {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: #059669;
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+        
+        .btn-secondary:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover:not(:disabled) {
+            background: #dc2626;
+        }
+        
+        .info-box {
+            background: rgba(255, 255, 255, 0.1);
+            border-left: 4px solid #10b981;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .info-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .info-text {
+            font-size: 14px;
+            opacity: 0.9;
+            line-height: 1.5;
+        }
+        
+        .warning-box {
+            background: rgba(251, 191, 36, 0.2);
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        
+        #log {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+        }
+        
+        .log-time {
+            opacity: 0.6;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📞 Test Notifications Navigateur</h1>
+        <p class="subtitle">Version adaptée pour les navigateurs web</p>
+        
+        <div class="status">
+            <div class="status-item">
+                <span class="status-label">État Permission:</span>
+                <span class="status-value" id="permission-status">Chargement...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Support Navigateur:</span>
+                <span class="status-value" id="browser-support">Chargement...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Focus Fenêtre:</span>
+                <span class="status-value" id="window-focus">Actif</span>
+            </div>
+        </div>
+        
+        <div class="buttons">
+            <button class="btn-primary" id="btn-request-permission">
+                <span>🔔</span>
+                <span>Demander la Permission</span>
+            </button>
+            
+            <button class="btn-secondary" id="btn-test-call" disabled>
+                <span>📞</span>
+                <span>Tester Notification d'Appel</span>
+            </button>
+            
+            <button class="btn-secondary" id="btn-test-message" disabled>
+                <span>💬</span>
+                <span>Tester Notification de Message</span>
+            </button>
+            
+            <button class="btn-danger" id="btn-reset">
+                <span>🔄</span>
+                <span>Réinitialiser</span>
+            </button>
+        </div>
+        
+        <div class="info-box">
+            <div class="info-title">
+                <span>ℹ️</span>
+                <span>Comment ça fonctionne ?</span>
+            </div>
+            <div class="info-text">
+                1. Cliquez sur "Demander la Permission" et autorisez les notifications<br>
+                2. <strong>Minimisez cette fenêtre ou changez d'onglet</strong><br>
+                3. Les notifications apparaîtront uniquement quand la fenêtre n'a pas le focus
+            </div>
+        </div>
+        
+        <div class="warning-box" id="warning-box" style="display: none;">
+            <div class="info-title">
+                <span>⚠️</span>
+                <span>Permission Refusée</span>
+            </div>
+            <div class="info-text">
+                Pour autoriser les notifications :<br>
+                • Cliquez sur l'icône <span class="code">🔒</span> dans la barre d'adresse<br>
+                • Autorisez les "Notifications" pour ce site<br>
+                • Rechargez la page (F5)
+            </div>
+        </div>
+        
+        <div id="log"></div>
+    </div>
+    
+    <script>
+        // Variables globales
+        let currentNotification = null;
+        let windowHasFocus = true;
+        
+        // Fonction de log
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString('fr-FR');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            
+            let emoji = 'ℹ️';
+            if (type === 'success') emoji = '✅';
+            if (type === 'error') emoji = '❌';
+            if (type === 'warning') emoji = '⚠️';
+            
+            entry.innerHTML = `<span class="log-time">${time}</span>${emoji} ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[NotificationTest] ${message}`);
+        }
+        
+        // Mise à jour de l'état
+        function updateStatus() {
+            const permissionStatus = document.getElementById('permission-status');
+            const browserSupport = document.getElementById('browser-support');
+            const btnTest = document.getElementById('btn-test-call');
+            const btnTestMsg = document.getElementById('btn-test-message');
+            const warningBox = document.getElementById('warning-box');
+            
+            // Support navigateur
+            if ('Notification' in window) {
+                browserSupport.textContent = '✅ Supporté';
+                browserSupport.style.color = '#10b981';
+            } else {
+                browserSupport.textContent = '❌ Non supporté';
+                browserSupport.style.color = '#ef4444';
+                return;
+            }
+            
+            // État permission
+            const permission = Notification.permission;
+            if (permission === 'granted') {
+                permissionStatus.textContent = '✅ Accordée';
+                permissionStatus.style.color = '#10b981';
+                btnTest.disabled = false;
+                btnTestMsg.disabled = false;
+                warningBox.style.display = 'none';
+            } else if (permission === 'denied') {
+                permissionStatus.textContent = '❌ Refusée';
+                permissionStatus.style.color = '#ef4444';
+                btnTest.disabled = true;
+                btnTestMsg.disabled = true;
+                warningBox.style.display = 'block';
+            } else {
+                permissionStatus.textContent = '⏳ Non demandée';
+                permissionStatus.style.color = '#f59e0b';
+                btnTest.disabled = true;
+                btnTestMsg.disabled = true;
+                warningBox.style.display = 'none';
+            }
+        }
+        
+        // Gestion du focus
+        window.addEventListener('focus', function() {
+            windowHasFocus = true;
+            document.getElementById('window-focus').textContent = '✅ Actif';
+            document.getElementById('window-focus').style.color = '#10b981';
+            log('Fenêtre a récupéré le focus', 'info');
+        });
+        
+        window.addEventListener('blur', function() {
+            windowHasFocus = false;
+            document.getElementById('window-focus').textContent = '⏸️ Inactif';
+            document.getElementById('window-focus').style.color = '#f59e0b';
+            log('Fenêtre a perdu le focus - notifications actives', 'warning');
+        });
+        
+        // Visibilité de la page
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                log('Onglet masqué - notifications actives', 'warning');
+            } else {
+                log('Onglet visible', 'info');
+            }
+        });
+        
+        // Demande de permission
+        document.getElementById('btn-request-permission').addEventListener('click', async function() {
+            log('Demande de permission en cours...', 'info');
+            
+            try {
+                const permission = await Notification.requestPermission();
+                log(`Réponse utilisateur: ${permission}`, permission === 'granted' ? 'success' : 'error');
+                updateStatus();
+            } catch (error) {
+                log(`Erreur: ${error.message}`, 'error');
+            }
+        });
+        
+        // Test notification d'appel
+        document.getElementById('btn-test-call').addEventListener('click', function() {
+            if (windowHasFocus) {
+                log('⚠️ Fenêtre active ! Minimisez-la d\'abord pour voir la notification', 'warning');
+            } else {
+                showCallNotification('Jean Dupont', '+33 6 12 34 56 78');
+            }
+        });
+        
+        // Test notification de message
+        document.getElementById('btn-test-message').addEventListener('click', function() {
+            if (windowHasFocus) {
+                log('⚠️ Fenêtre active ! Minimisez-la d\'abord pour voir la notification', 'warning');
+            } else {
+                showMessageNotification('Marie Martin', 'Bonjour ! Comment vas-tu ?');
+            }
+        });
+        
+        // Réinitialiser
+        document.getElementById('btn-reset').addEventListener('click', function() {
+            if (currentNotification) {
+                currentNotification.close();
+                currentNotification = null;
+            }
+            document.getElementById('log').innerHTML = '';
+            log('Interface réinitialisée', 'info');
+        });
+        
+        // Fonction pour afficher une notification d'appel
+        function showCallNotification(callerName, callerNumber) {
+            if (!windowHasFocus && Notification.permission === 'granted') {
+                log(`📞 Affichage notification: ${callerName} (${callerNumber})`, 'success');
+                
+                // Fermer la notification précédente si elle existe
+                if (currentNotification) {
+                    currentNotification.close();
+                }
+                
+                // Créer la nouvelle notification
+                currentNotification = new Notification('📞 Appel entrant', {
+                    body: `${callerName}\n${callerNumber}`,
+                    icon: 'icons/icon-96x96.png',
+                    badge: 'icons/icon-96x96.png',
+                    tag: 'incoming-call',
+                    requireInteraction: true,
+                    silent: false
+                });
+                
+                // Événements de la notification
+                currentNotification.onclick = function() {
+                    log('✅ Notification cliquée - Accepter l\'appel', 'success');
+                    window.focus();
+                    // Ici vous pouvez déclencher l'action d'accepter l'appel
+                    // Par exemple: window.postMessage({ action: 'answer-call' }, '*');
+                    currentNotification.close();
+                };
+                
+                currentNotification.onclose = function() {
+                    log('Notification fermée', 'info');
+                    currentNotification = null;
+                };
+                
+                currentNotification.onerror = function(error) {
+                    log(`Erreur notification: ${error}`, 'error');
+                };
+            } else {
+                log('Conditions non remplies pour afficher la notification', 'warning');
+                log(`- Focus: ${windowHasFocus}, Permission: ${Notification.permission}`, 'info');
+            }
+        }
+        
+        // Fonction pour afficher une notification de message
+        function showMessageNotification(senderName, messageText) {
+            if (!windowHasFocus && Notification.permission === 'granted') {
+                log(`💬 Affichage notification: ${senderName}`, 'success');
+                
+                const notification = new Notification(`💬 Nouveau message de ${senderName}`, {
+                    body: messageText,
+                    icon: 'icons/icon-96x96.png',
+                    badge: 'icons/icon-96x96.png',
+                    tag: 'incoming-message',
+                    requireInteraction: false,
+                    silent: false
+                });
+                
+                notification.onclick = function() {
+                    log('💬 Notification de message cliquée', 'success');
+                    window.focus();
+                    notification.close();
+                };
+                
+                // Fermeture automatique après 5 secondes
+                setTimeout(function() {
+                    notification.close();
+                }, 5000);
+            }
+        }
+        
+        // Initialisation
+        log('🚀 Page de test chargée', 'success');
+        updateStatus();
+        
+        // Exposer les fonctions pour usage externe
+        window.testNotifications = {
+            showCall: showCallNotification,
+            showMessage: showMessageNotification
+        };
+    </script>
+</body>
+</html>

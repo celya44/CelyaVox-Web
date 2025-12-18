@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Notifications Système</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .status.granted {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.denied {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.default {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+            margin: 20px 0;
+        }
+        .checkbox-group {
+            margin: 20px 0;
+        }
+        .checkbox-group label {
+            display: block;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+        .checkbox-group input[type="checkbox"] {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔔 Test des Notifications Système</h1>
+        
+        <div id="status" class="status default">
+            <strong>État :</strong> <span id="statusText">Chargement...</span>
+        </div>
+
+        <div class="info">
+            <strong>ℹ️ Note :</strong> Pour tester correctement, réduisez cette fenêtre ou changez d'application après avoir cliqué sur "Envoyer notification test".
+        </div>
+
+        <div class="checkbox-group">
+            <label>
+                <input type="checkbox" id="simulateNoFocus">
+                Simuler la perte de focus (pour test sans changer de fenêtre)
+            </label>
+        </div>
+
+        <button id="requestBtn" onclick="requestPermission()">
+            Demander la permission
+        </button>
+
+        <button id="testBtn" onclick="sendTestNotification()" disabled>
+            Envoyer notification test
+        </button>
+
+        <button onclick="testIncomingCall()">
+            Test : Appel entrant
+        </button>
+
+        <button onclick="testIncomingMessage()">
+            Test : Message entrant
+        </button>
+
+        <div class="info" style="margin-top: 20px;">
+            <strong>📱 Environnement détecté :</strong>
+            <div id="envInfo" style="margin-top: 10px; font-family: monospace;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales (simulées depuis phone.js)
+        var windowHasFocus = true;
+        var browserNotificationsEnabled = false;
+
+        // Détection du focus
+        window.addEventListener('focus', function() {
+            windowHasFocus = true;
+            updateStatus();
+        });
+
+        window.addEventListener('blur', function() {
+            windowHasFocus = false;
+            updateStatus();
+        });
+
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                windowHasFocus = false;
+            } else {
+                windowHasFocus = true;
+            }
+            updateStatus();
+        });
+
+        // Fonction de détection d'environnement
+        function isRunningInBrowser() {
+            return !window.env || !window.env.isElectron;
+        }
+
+        // Fonction de demande de permission
+        function requestPermission() {
+            if (!isRunningInBrowser()) {
+                alert('Cette fonctionnalité est désactivée dans Electron');
+                return;
+            }
+
+            if (!("Notification" in window)) {
+                alert('Votre navigateur ne supporte pas les notifications système');
+                return;
+            }
+
+            Notification.requestPermission().then(function(permission) {
+                if (permission === "granted") {
+                    browserNotificationsEnabled = true;
+                    console.log('[Notifications] Permission accordée');
+                } else {
+                    console.log('[Notifications] Permission refusée');
+                }
+                updateStatus();
+            });
+        }
+
+        // Fonction d'affichage de notification
+        function showBrowserNotification(title, options) {
+            var simulateNoFocus = document.getElementById('simulateNoFocus').checked;
+            
+            if (!isRunningInBrowser()) {
+                console.log('[Test] Notification bloquée : Electron détecté');
+                return;
+            }
+
+            if (windowHasFocus && !simulateNoFocus) {
+                console.log('[Test] Notification bloquée : fenêtre a le focus');
+                return;
+            }
+
+            if (!browserNotificationsEnabled || Notification.permission !== "granted") {
+                console.log('[Test] Notification bloquée : permission non accordée');
+                return;
+            }
+
+            var notification = new Notification(title, options);
+
+            notification.onclick = function() {
+                console.log('[Test] Notification cliquée');
+                window.focus();
+                notification.close();
+            };
+
+            setTimeout(function() {
+                notification.close();
+            }, 10000);
+
+            console.log('[Test] Notification affichée avec succès');
+            return notification;
+        }
+
+        // Test de notification simple
+        function sendTestNotification() {
+            showBrowserNotification('Test CelyaVox', {
+                body: 'Ceci est une notification de test. Cliquez pour revenir à l\'application.',
+                icon: 'icons/512.png',
+                tag: 'test-notification',
+                requireInteraction: false
+            });
+        }
+
+        // Test appel entrant
+        function testIncomingCall() {
+            showBrowserNotification('Appel entrant', {
+                body: 'John Doe (0123456789)',
+                icon: 'icons/512.png',
+                tag: 'incoming-call-test',
+                requireInteraction: false
+            });
+        }
+
+        // Test message entrant
+        function testIncomingMessage() {
+            showBrowserNotification('Message de : Jane Smith', {
+                body: 'Bonjour ! Comment allez-vous aujourd\'hui ?',
+                icon: 'icons/512.png',
+                tag: 'message-test',
+                requireInteraction: false
+            });
+        }
+
+        // Mise à jour de l'interface
+        function updateStatus() {
+            var statusDiv = document.getElementById('status');
+            var statusText = document.getElementById('statusText');
+            var testBtn = document.getElementById('testBtn');
+            var requestBtn = document.getElementById('requestBtn');
+
+            if (!("Notification" in window)) {
+                statusDiv.className = 'status denied';
+                statusText.textContent = 'Navigateur non supporté';
+                testBtn.disabled = true;
+                requestBtn.disabled = true;
+                return;
+            }
+
+            var permission = Notification.permission;
+            
+            if (permission === 'granted') {
+                statusDiv.className = 'status granted';
+                statusText.textContent = 'Permission accordée ✓';
+                browserNotificationsEnabled = true;
+                testBtn.disabled = false;
+                requestBtn.disabled = true;
+            } else if (permission === 'denied') {
+                statusDiv.className = 'status denied';
+                statusText.textContent = 'Permission refusée ✗';
+                testBtn.disabled = true;
+                requestBtn.disabled = true;
+            } else {
+                statusDiv.className = 'status default';
+                statusText.textContent = 'En attente de permission';
+                testBtn.disabled = true;
+                requestBtn.disabled = false;
+            }
+
+            // Mise à jour info focus
+            if (windowHasFocus) {
+                statusText.textContent += ' | Fenêtre active 👁️';
+            } else {
+                statusText.textContent += ' | Fenêtre inactive 💤';
+            }
+
+            // Info environnement
+            var envInfo = document.getElementById('envInfo');
+            var isElectron = window.env && window.env.isElectron;
+            envInfo.innerHTML = 
+                'Electron: ' + (isElectron ? 'Oui (notifications désactivées)' : 'Non (navigateur web)') + '<br>' +
+                'API Notification: ' + ("Notification" in window ? 'Supportée' : 'Non supportée') + '<br>' +
+                'Permission: ' + (permission || 'default') + '<br>' +
+                'Focus fenêtre: ' + (windowHasFocus ? 'Oui' : 'Non') + '<br>' +
+                'HTTPS: ' + (location.protocol === 'https:' ? 'Oui' : 'Non (requis sauf localhost)');
+        }
+
+        // Initialisation
+        window.addEventListener('load', function() {
+            updateStatus();
+        });
+    </script>
+</body>
+</html>

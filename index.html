@@ -1,0 +1,2268 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+
+    <title>SipApp</title>
+    <meta name="description" content="SipApp is a fully featured browser based WebRTC SIP phone for Asterisk. Designed to work with Asterisk PBX. It will connect to Asterisk PBX via web socket, and register an extension.  Calls are made between contacts, and a full call detail is saved. Audio and Video Calls can be recorded locally.">
+
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
+
+        <!-- Progressive Web App (PWA) -->
+        <meta name="HandheldFriendly" content="true">
+        <meta name="format-detection" content="telephone=no"/>
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes"/>
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f6f6">
+        <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#292929">
+        <link rel="apple-touch-icon" type="image/png" href="icons/512.png">
+        <link rel="manifest" type="application/manifest+json" href="manifest.json">
+        
+        <!-- Microsoft Teams SDK -->
+        <script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js" crossorigin="anonymous"></script>
+        
+        <script type="text/javascript">
+
+        const loader = document.querySelector(".loading");
+        if (loader) loader.style.display = "none";
+        
+        // Détection de l'environnement Teams
+        let isInTeams = false;
+        let teamsContext = null;
+        
+        // Fonction pour ouvrir l'application dans une fenêtre popup
+        function openInPopup() {
+            console.log('[Teams] Ouverture dans une fenêtre popup');
+            
+            var currentUrl = window.location.href;
+            var width = 420;
+            var height = 740;
+            var left = (screen.width - width) / 2;
+            var top = (screen.height - height) / 2;
+            
+            var features = 'width=' + width + 
+                          ',height=' + height + 
+                          ',left=' + left + 
+                          ',top=' + top + 
+                          ',resizable=yes,scrollbars=yes,status=no,toolbar=no,menubar=no,location=no';
+            
+            var popup = window.open(currentUrl, 'CelyaVoxPhone', features);
+            
+            if (popup) {
+                console.log('[Teams] ✅ Popup ouverte');
+                var banner = document.getElementById('teams-warning-banner');
+                if (banner) {
+                    banner.innerHTML = '<span style="margin-right: 10px;">✅</span>' +
+                                      '<span>Application ouverte dans une fenêtre séparée !</span>' +
+                                      '<button style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 4px 12px; border-radius: 12px; cursor: pointer; margin-left: 15px; font-size: 12px;" onclick="document.getElementById(\'teams-warning-banner\').style.display=\'none\'">OK</button>';
+                    setTimeout(function() {
+                        if (banner) banner.style.display = 'none';
+                    }, 5000);
+                }
+                popup.focus();
+            } else {
+                console.error('[Teams] ❌ Popup bloquée');
+                alert('⚠️ Les popups sont bloquées.\n\nVeuillez autoriser les fenêtres popup pour ce site.');
+            }
+        }
+        
+        // Fonction pour détecter si on est dans Teams
+        function detectTeamsEnvironment() {
+            // Vérifier si le SDK Teams est disponible
+            if (typeof microsoftTeams !== 'undefined') {
+                isInTeams = true;
+                microsoftTeams.app.initialize().then(() => {
+                    console.log("Running in Microsoft Teams");
+                    microsoftTeams.app.getContext().then((context) => {
+                        teamsContext = context;
+                        console.log("Teams context:", context);
+                        
+                        // Appliquer le thème Teams
+                        applyTeamsTheme(context.app.theme);
+                        
+                        // Charger la configuration depuis les paramètres Teams
+                        loadTeamsConfiguration();
+                        
+                        // Afficher la bannière d'avertissement (si pas en popup)
+                        setTimeout(function() {
+                            var isPopup = (window.opener && window.opener !== window);
+                            if (isPopup) {
+                                console.log('[Teams] ✅ Déjà en popup - pas de bannière');
+                            } else {
+                                console.log('[Teams] ⚠️ iframe Teams - affichage bannière');
+                                var banner = document.getElementById('teams-warning-banner');
+                                if (banner) banner.style.display = 'block';
+                            }
+                        }, 2000);
+                    });
+                }).catch(err => {
+                    console.log("Not in Teams environment");
+                    isInTeams = false;
+                });
+            }
+        }
+        
+        // Appliquer le thème Teams
+        function applyTeamsTheme(theme) {
+            if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else if (theme === 'default' || theme === 'light') {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        }
+        
+        // Charger la configuration depuis les paramètres d'URL Teams
+        function loadTeamsConfiguration() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const teamsConfig = urlParams.get('teamsConfig');
+            
+            if (teamsConfig) {
+                try {
+                    const config = JSON.parse(decodeURIComponent(teamsConfig));
+                    console.log("Loading Teams configuration:", config);
+                    
+                    // Appliquer la configuration
+                    if (config.displayName) localStorage.setItem("profileName", config.displayName);
+                    if (config.wssServer) localStorage.setItem("wssServer", config.wssServer);
+                    if (config.wsPort) localStorage.setItem("WebSocketPort", config.wsPort);
+                    if (config.sipDomain) localStorage.setItem("SipDomain", config.sipDomain);
+                    
+                    // Marquer que la configuration provient de Teams
+                    localStorage.setItem("isTeamsConfiguration", "true");
+                } catch (e) {
+                    console.error("Error parsing Teams configuration:", e);
+                }
+            }
+        }
+        
+        // Initialiser la détection Teams au chargement
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', detectTeamsEnvironment);
+        } else {
+            detectTeamsEnvironment();
+        }
+
+        function showUrlDialog() {
+            return new Promise((resolve) => {
+                // Dans Teams, utiliser directement prompt() qui permet la saisie clavier
+                if (isInTeams) {
+                    const url = prompt("📱 Configuration CelyaVox\n\nEntrez l'URL de configuration SIP :", "https://");
+                    if (url && url.trim()) {
+                        resolve({ type: "url", value: url.trim() });
+                        return;
+                    } else if (url === null) {
+                        // Utilisateur a annulé
+                        const useManual = confirm("Voulez-vous configurer manuellement l'application ?");
+                        resolve({ type: useManual ? "manual" : "cancel" });
+                        return;
+                    } else {
+                        // URL vide, redemander
+                        alert("L'URL ne peut pas être vide. Veuillez réessayer.");
+                        showUrlDialog().then(result => resolve(result));
+                        return;
+                    }
+                }
+                const overlay = document.createElement("div");
+                overlay.style.position = "fixed";
+                overlay.style.top = 0;
+                overlay.style.left = 0;
+                overlay.style.width = "100%";
+                overlay.style.height = "100%";
+                overlay.style.backgroundColor = "rgba(0,0,0,0.6)";
+                overlay.style.display = "flex";
+                overlay.style.justifyContent = "center";
+                overlay.style.alignItems = "center";
+                overlay.style.zIndex = 9999;
+                overlay.style.fontFamily = "Arial, sans-serif";
+
+                const modal = document.createElement("div");
+                modal.style.backgroundColor = "#fff";
+                modal.style.borderRadius = "12px";
+                modal.style.padding = "30px";
+                modal.style.width = "90%";
+                modal.style.maxWidth = "400px";
+                modal.style.boxShadow = "0 8px 20px rgba(0,0,0,0.3)";
+                modal.style.textAlign = "center";
+                modal.style.animation = "fadeIn 0.3s ease-out";
+                
+                // Message spécifique pour Teams
+                const teamsMessage = isInTeams ? 
+                    '<p style="background: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 15px; color: #856404;">📱 Vous êtes dans Teams. Pour une meilleure expérience, configurez l\'application via l\'onglet de configuration Teams.</p>' : '';
+                
+                modal.innerHTML = `
+                    <h2 style="margin-bottom: 15px; font-size: 1.5em;">Configuration requise</h2>
+                    ${teamsMessage}
+                    <p style="margin-bottom: 10px;">Veuillez entrer l'URL pour charger les données SIP :</p>
+                    <div style="margin-bottom: 20px;">
+                        <div id="sipUrlInput" contenteditable="true" 
+                            data-placeholder="https://example.com/data.xml"
+                            style="width: 100%; min-height: 80px; padding: 10px; font-size: 14px; border: 2px solid #4A90E2; border-radius: 6px; font-family: monospace; box-sizing: border-box; outline: none; background: white; overflow-wrap: break-word; word-break: break-all; text-align: left; line-height: 1.5;"
+                            spellcheck="false"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 10px;">
+                        <button id="sipUrlBtn" style="flex: 1; padding: 12px; background-color: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 1em; font-weight: bold;">Valider</button>
+                        <button id="manualConfigBtn" style="flex: 1; padding: 12px; background-color: #f0f0f0; color: #333; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; font-size: 1em;">Configurer manuellement</button>
+                    </div>
+                `;
+                overlay.appendChild(modal);
+                document.body.appendChild(overlay);
+
+                const style = document.createElement("style");
+                style.innerHTML = `
+                    @keyframes fadeIn {
+                        0% { opacity: 0; transform: translateY(-20px); }
+                        100% { opacity: 1; transform: translateY(0); }
+                    }
+                    #sipUrlBtn:hover { background-color: #45a049; transform: scale(1.02); transition: all 0.2s; }
+                    #manualConfigBtn:hover { background-color: #e0e0e0; transform: scale(1.02); transition: all 0.2s; }
+                    #sipUrlInput:focus { border-color: #2196F3; box-shadow: 0 0 8px rgba(33, 150, 243, 0.3); }
+                    #sipUrlInput { 
+                        -webkit-user-select: text !important; 
+                        user-select: text !important; 
+                        pointer-events: auto !important;
+                        cursor: text !important;
+                    }
+                    #sipUrlInput:empty:before {
+                        content: attr(data-placeholder);
+                        color: #999;
+                        font-style: italic;
+                    }
+                    #sipUrlInput:focus:before {
+                        content: '';
+                    }
+                `;
+                document.head.appendChild(style);
+
+                // Attendre que le DOM soit prêt
+                setTimeout(() => {
+                    const urlInput = document.getElementById("sipUrlInput");
+                    
+                    // Forcer l'édition dans Teams avec contenteditable
+                    if (urlInput) {
+                        // Forcer le focus
+                        urlInput.focus();
+                        
+                        // Gérer le collage pour nettoyer le formatage
+                        urlInput.addEventListener('paste', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+                            document.execCommand('insertText', false, text);
+                        });
+                        
+                        // Empêcher les retours à la ligne
+                        urlInput.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                document.getElementById("sipUrlBtn").click();
+                            }
+                        });
+                        
+                        // Clic pour focus
+                        urlInput.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                        });
+                    }
+                    
+                    document.getElementById("sipUrlBtn").addEventListener("click", () => {
+                        const url = urlInput.textContent.trim();
+                        if(url){
+                            document.body.removeChild(overlay);
+                            resolve({ type: "url", value: url });
+                        } else {
+                            alert("Veuillez entrer une URL valide.");
+                        }
+                    });
+
+                    document.getElementById("manualConfigBtn").addEventListener("click", () => {
+                        document.body.removeChild(overlay);
+                        resolve({ type: "manual" });
+                    });
+                }, 100);
+            });
+        }
+
+        async function checkAndLoadSipDomain() {
+            // Vérifier d'abord si une configuration Teams existe dans l'URL
+            if (isInTeams) {
+                const urlParams = new URLSearchParams(window.location.search);
+                const teamsConfig = urlParams.get('teamsConfig');
+                if (teamsConfig) {
+                    console.log("Using Teams configuration from URL");
+                    return;
+                }
+            }
+            
+            let sipDomain = localStorage.getItem("SipDomain");
+            if(!sipDomain){
+                const result = await showUrlDialog();
+
+                if(result.type === "cancel") {
+                    console.log("Configuration cancelled");
+                    return;
+                }
+                
+                if(result.type === "url") {
+                    try {
+                        const response = await fetch(result.value);
+                        if(!response.ok) throw new Error("Erreur HTTP " + response.status);
+                        const text = await response.text();
+                        const xmlDoc = new DOMParser().parseFromString(text, "application/xml");
+                        const entries = xmlDoc.getElementsByTagName("entry");
+                        for (let entry of entries) {
+                            const key = entry.getAttribute("name"); // clé = name
+                            const value = entry.textContent.trim();  // valeur = contenu
+                            localStorage.setItem(key, value);
+                        }
+                        localStorage.setItem("profileUserID", uID());
+                        if (typeof InitUi === "function") InitUi();
+                        window.location.reload();
+                    } catch(err){
+                        alert("Erreur lors du chargement du XML : " + err.message);
+                        console.error(err);
+                    }
+                } else if(result.type === "manual") {
+                    console.log("L'utilisateur a choisi de configurer à la main.");
+                }
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            checkAndLoadSipDomain();
+        });
+
+        
+        </script>
+
+        <!-- Cache -->
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+        <meta http-equiv="Expires" content="0"/>
+
+        <link rel="icon" type="image/x-icon" href="favicon.ico">
+
+        <!-- Styles -->
+        <link rel="stylesheet" type="text/css" href="https://dtd6jl0d42sve.cloudfront.net/lib/Normalize/normalize-v8.0.1.css"/>
+        <link rel="stylesheet preload prefetch" type="text/css" as="style" href="https://dtd6jl0d42sve.cloudfront.net/lib/fonts/font_roboto/roboto.css"/>
+        <link rel="stylesheet preload prefetch" type="text/css" as="style" href="https://dtd6jl0d42sve.cloudfront.net/lib/fonts/font_awesome/css/font-awesome.min.css"/>
+        <link rel="stylesheet" type="text/css" href="https://dtd6jl0d42sve.cloudfront.net/lib/jquery/jquery-ui-1.13.2.min.css"/>
+        <link rel="stylesheet" type="text/css" href="https://dtd6jl0d42sve.cloudfront.net/lib/Croppie/Croppie-2.6.4/croppie.css"/>
+        <link rel="stylesheet" type="text/css" href="phone.css"/>
+        <link rel="stylesheet" type="text/css" href="phone.teams.css"/>
+        <link rel="stylesheet" type="text/css" href="enable-selection.css"/>
+
+        <!-- Provisioning -->
+        <script type="text/javascript">
+            // Provision runtime options can go here.
+            var phoneOptions = {
+                loadAlternateLang: true
+            }
+
+            // Occurs after the language file is loaded
+            document.addEventListener("language_pack_loaded", function(lang){
+                console.log("web_hook_on_language_pack_loaded", lang);
+            });
+            var web_hook_on_language_pack_loaded = function(lang){
+                // console.log("web_hook_on_language_pack_loaded", lang);
+            }
+            // Occurs After the Language Packs load, at the start of the InitUi() function 
+            var web_hook_on_before_init = function(options){
+                // console.log("web_hook_on_before_init", options);
+            }
+            // Occurs at the end of the InitUi() function, before the User Agent is created.
+            // In order to follow events after the User Agent is created, use the register
+            // and transport events below. 
+            var web_hook_on_init = function(){
+                // console.log("web_hook_on_init");
+            }
+            // Occurs after the UserAgent is created.
+            // Note: The registration state would not be know yet, but the registration may have been sent.
+            var web_hook_on_userAgent_created = function(ua){
+                // console.log("web_hook_on_userAgent_created", ua);
+            }
+            // Connection and Calling Events
+            var web_hook_on_transportError = function(t, ua){
+                // console.log("web_hook_on_transportError",t, ua);
+            }
+            var web_hook_on_register = function(ua){
+                // console.log("web_hook_on_register", ua);
+            }
+            var web_hook_on_registrationFailed = function(e){
+                // console.log("web_hook_on_registrationFailed", e);
+            }
+            var web_hook_on_unregistered = function(){
+                // console.log("web_hook_on_unregistered");
+            }
+            var web_hook_on_invite = function(session){
+                // console.log("web_hook_on_invite", session);
+            }
+            var web_hook_on_message = function(message){
+                // console.log("web_hook_on_message", message);
+            }
+            var web_hook_on_modify = function(action, session){
+                // console.log("web_hook_on_modify", action, session);
+            }
+            var web_hook_on_dtmf = function(item, session){
+                // console.log("web_hook_on_dtmf", item, session);
+            }
+            var web_hook_on_terminate = function(session){
+                // console.log("web_hook_on_terminate", session);
+            }
+            var web_hook_on_notify = function(ContentType, buddyObj, notify){
+                // console.log("web_hook_on_notify", ContentType, buddyObj, notify);
+            }
+            var web_hook_on_self_notify = function(ContentType, notify){
+                // console.log("web_hook_on_self_notify", ContentType, notify);
+            }
+
+            // UI events
+            var web_hook_dial_out = function(event){
+                // console.log("web_hook_dial_out", event);
+            }
+            var web_hook_on_add_buddy = function(event){
+                // console.log("web_hook_on_add_buddy", event);
+            }
+            var web_hook_on_edit_buddy = function(buddyJson){
+                // console.log("web_hook_on_edit_buddy", buddyJson);
+            }            
+            var web_hook_on_config_menu = function(event){
+                // console.log("web_hook_on_config_menu", event);
+            }
+            var web_hook_on_messages_waiting = function(newMsg, oldMsg, ugentNew, ugentOld){
+                // console.log("web_hook_on_messages_waiting", newMsg, oldMsg, ugentNew, ugentOld);
+            }
+            var web_hook_on_missed_notify = function(missed){
+                // console.log("web_hook_on_missed_notify", missed);
+            }
+            var web_hook_on_expand_video_area = function(lineNum){
+                // console.log("web_hook_on_expand_video_area", lineNum);
+            }
+            var web_hook_on_restore_video_area = function(lineNum){
+                // console.log("web_hook_on_restore_video_area", lineNum);
+            }
+            var web_hook_on_message_action = function(buddy, obj){
+                // console.log("web_hook_on_message_action", buddy, obj);
+            }
+            var web_hook_disable_dnd = function(){
+                // console.log("web_hook_disable_dnd");
+            }
+            var web_hook_enable_dnd = function(){
+                // console.log("web_hook_enable_dnd");
+            }
+            var web_hook_on_edit_media = function(lineNum, obj){
+                // console.log("web_hook_on_edit_media", lineNum, obj);
+            }
+            var web_hook_sort_and_filter = function(event){
+                // console.log("web_hook_sort_and_filter", event);
+            }
+
+        </script>
+    </head>
+
+    <body class="with-bottom-nav">
+        <!-- Loading Animation -->
+        <div class=loading>
+            <span class="fa fa-circle-o-notch fa-spin"></span>
+        </div>
+
+        <!-- The Phone -->
+        <div id=Phone></div>
+
+        <!-- Bannière d'avertissement Teams -->
+        <div id="teams-warning-banner" style="display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 10000; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 20px; text-align: center; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 15px; flex-wrap: wrap;">
+                <span style="font-weight: 500;">⚠️ Pour recevoir des appels en arrière-plan, ouvrez l'application dans une fenêtre séparée</span>
+                <button onclick="openInPopup()" style="background: white; color: #667eea; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 13px; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                    🪟 Ouvrir dans une fenêtre
+                </button>
+            </div>
+        </div>
+
+        <!-- Bandeau bas moderne (sans action) -->
+        <nav class="bottom-nav" role="navigation" aria-label="Navigation principale">
+            <button class="bottom-nav__item" id="nav-clavier" type="button" aria-label="Clavier">
+                <i class="fa fa-home bottom-nav__icon" aria-hidden="true"></i>
+            </button>
+            <button class="bottom-nav__item" id="nav-historique" type="button" aria-label="Historique">
+                <i class="fa fa-history bottom-nav__icon" aria-hidden="true"></i>
+                <span class="bottom-nav__label">Historique</span>
+            </button>
+            <button class="bottom-nav__item" id="nav-contacts" type="button" aria-label="Contacts">
+                <i class="fa fa-address-book bottom-nav__icon" aria-hidden="true"></i>
+                <span class="bottom-nav__label">Contacts</span>
+            </button>
+            <button class="bottom-nav__item" id="nav-favoris" type="button" aria-label="Favoris">
+                <i class="fa fa-star bottom-nav__icon" aria-hidden="true"></i>
+                <span class="bottom-nav__label">Favoris</span>
+            </button>
+            <button class="bottom-nav__item" id="nav-voicemail" type="button" aria-label="Visual Voicemail">
+                <i class="fa fa-inbox bottom-nav__icon" aria-hidden="true"></i>
+                <span class="bottom-nav__label">Visual Voicemail</span>
+            </button>
+            <button class="bottom-nav__item" id="nav-fonction-avance" type="button" aria-label="Fonction avancé">
+                <i class="fa fa-cogs bottom-nav__icon" aria-hidden="true"></i>
+                <span class="bottom-nav__label">Fonctions</span>
+            </button>
+        </nav>
+
+        <!-- Panneau latéral gauche -->
+        <aside id="sidepanel" class="sidepanel" aria-hidden="true" aria-live="polite">
+            <div class="sidepanel__header">
+                <span id="sidepanel-title" class="sidepanel__title"></span>
+                <button id="sidepanel-close" class="sidepanel__close" type="button" aria-label="Fermer">&times;</button>
+            </div>
+            <div id="sidepanel-content" class="sidepanel__content"></div>
+        </aside>
+    </body>
+
+    <!-- Loadable Scripts -->
+    <script type="text/javascript" src="https://dtd6jl0d42sve.cloudfront.net/lib/jquery/jquery-3.6.1.min.js"></script>
+    <script type="text/javascript" src="https://dtd6jl0d42sve.cloudfront.net/lib/jquery/jquery-ui-1.13.2.min.js"></script>
+    <script type="text/javascript" src="phone.js"></script>
+<script type="text/javascript" src="capacitor-fcm.js"></script>
+<script type="text/javascript" src="capacitor-init.js"></script>
+
+    <!-- Script du panneau latéral (simple, sans logique fonctionnelle avancée) -->
+    <script type="text/javascript">
+    (function(){
+        function $(id){ return document.getElementById(id); }
+        var panel = $("sidepanel");
+        var titleEl = $("sidepanel-title");
+        var contentEl = $("sidepanel-content");
+        var closeBtn = $("sidepanel-close");
+    var phoneEl = $("Phone");
+    var resizeHandler = null;
+    var contentResizeObserver = null;
+        function toArrayFromResponse(data){
+            // Déjà un tableau
+            if(Array.isArray(data)) return data;
+
+            // Si c'est une chaîne JSON (ex: "[ {...} ]"), tenter de parser
+            if(typeof data === 'string'){
+                var t = data.trim();
+                if(t.startsWith('[') || t.startsWith('{')){
+                    try{
+                        var parsed = JSON.parse(t);
+                        var arr = toArrayFromResponse(parsed);
+                        if(Array.isArray(arr)) return arr;
+                    }catch(e){ /* ignore */ }
+                }
+                return null;
+            }
+
+            if(!data || typeof data !== 'object') return null;
+
+            // Clés fréquentes
+            var keys = [ 'calls','cdr','list','items','data','Data','rows','result','records','entries' ];
+            for(var i=0;i<keys.length;i++){
+                var k = keys[i];
+                if(!Object.prototype.hasOwnProperty.call(data,k)) continue;
+                var v = data[k];
+                if(Array.isArray(v)) return v;
+                // String JSON dans la clé (ex: data: "[ ... ]")
+                if(typeof v === 'string'){
+                    var tt = v.trim();
+                    if(tt.startsWith('[') || tt.startsWith('{')){
+                        try{
+                            var pv = JSON.parse(tt);
+                            var arr2 = toArrayFromResponse(pv);
+                            if(Array.isArray(arr2)) return arr2;
+                        }catch(e){ /* ignore */ }
+                    }
+                }
+                // Objet imbriqué
+                if(v && typeof v === 'object'){
+                    var inner = toArrayFromResponse(v);
+                    if(Array.isArray(inner)) return inner;
+                }
+            }
+
+            // Objet indexé {"0": {...}, "1": {...}}
+            var objKeys = Object.keys(data);
+            if(objKeys.length && objKeys.every(function(k){ return /^\d+$/.test(k); })){
+                return objKeys.sort(function(a,b){ return Number(a)-Number(b); }).map(function(k){ return data[k]; });
+            }
+
+            // Premier champ tableau rencontré
+            for(var p in data){
+                if(!Object.prototype.hasOwnProperty.call(data,p)) continue;
+                var val = data[p];
+                if(Array.isArray(val)) return val;
+                if(typeof val === 'string'){
+                    var ts = val.trim();
+                    if(ts.startsWith('[') || ts.startsWith('{')){
+                        try{
+                            var pa = JSON.parse(ts);
+                            var arr3 = toArrayFromResponse(pa);
+                            if(Array.isArray(arr3)) return arr3;
+                        }catch(e){ /* ignore */ }
+                    }
+                }
+                if(val && typeof val === 'object'){
+                    var inner2 = toArrayFromResponse(val);
+                    if(Array.isArray(inner2)) return inner2;
+                }
+            }
+            return null;
+        }
+
+        // Helpers
+        function getCfg(keys){
+            for(var i=0;i<keys.length;i++){
+                var v = localStorage.getItem(keys[i]);
+                if(v && String(v).trim() !== "") return v;
+            }
+            return null;
+        }
+        function escHtml(s){
+            if(s === null || s === undefined) return "";
+            return String(s)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
+        function fmtDuration(sec){
+            var n = Number(sec);
+            if(!isFinite(n) || n < 0) return escHtml(sec);
+            var h = Math.floor(n/3600), m = Math.floor((n%3600)/60), s = Math.floor(n%60);
+            var parts = [];
+            if(h>0) parts.push(h);
+            parts.push((h>0? String(m).padStart(2,'0') : m));
+            parts.push(String(s).padStart(2,'0'));
+            return parts.join(":");
+        }
+        function tryDate(v){
+            if(!v) return "";
+            // handle ISO or "YYYY-MM-DD HH:mm:ss"
+            var parsed = !isNaN(Date.parse(v)) ? new Date(v) : null;
+            if(!parsed){
+                var m = /^\s*(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})\s*$/.exec(String(v));
+                if(m){ parsed = new Date(Number(m[1]), Number(m[2])-1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6])); }
+            }
+            return parsed ? parsed.toLocaleString() : escHtml(v);
+        }
+        function pick(obj, candidates){
+            for(var i=0;i<candidates.length;i++){
+                var k = candidates[i];
+                if(obj && Object.prototype.hasOwnProperty.call(obj,k) && obj[k] != null) return obj[k];
+            }
+            return "";
+        }
+        function statusIcon(status){
+            var s = String(status || '').toUpperCase();
+            // Icônes compatibles Font Awesome 4.7
+            var size = '18px';
+            if(s === 'ANSWERED') return '<i class="fa fa-check-circle" style="color:#16a34a; font-size:'+ size +';" aria-hidden="true"></i>';
+            if(s === 'NO ANSWER' || s === 'NOANSWER') return '<i class="fa fa-clock-o" style="color:#d97706; font-size:'+ size +';" aria-hidden="true"></i>';
+            if(s === 'BUSY') return '<i class="fa fa-exclamation-circle" style="color:#d97706; font-size:'+ size +';" aria-hidden="true"></i>';
+            if(s === 'FAILED' || s === 'ERROR') return '<i class="fa fa-exclamation-triangle" style="color:#dc2626; font-size:'+ size +';" aria-hidden="true"></i>';
+            if(s === 'CANCELLED' || s === 'CANCELED') return '<i class="fa fa-ban" style="color:#6b7280; font-size:'+ size +';" aria-hidden="true"></i>';
+            if(s === 'VOICEMAIL' || s === 'VM' || s === 'MAIL'){ return '<i class="fa fa-envelope" style="color:#7c3aed; font-size:'+ size +';" aria-hidden="true"></i>'; }
+            if(s === 'RINGING' || s === 'PROGRESS') return '<i class="fa fa-bell-o" style="color:#2563eb; font-size:'+ size +';" aria-hidden="true"></i>';
+            return '<i class="fa fa-info-circle" style="color:#6b7280; font-size:'+ size +';" aria-hidden="true"></i>';
+        }
+    function renderHistory(items, userNo99){
+            if(!Array.isArray(items)){
+                try{
+                    return '<pre style="white-space:pre-wrap; word-break:break-word; padding:12px;">'+ escHtml(JSON.stringify(items, null, 2)) +'</pre>';
+                }catch(e){
+                    return '<div style="padding:12px;">'+ escHtml(String(items)) +'</div>';
+                }
+            }
+            if(items.length === 0){
+                return '<div style="padding:12px;">Aucun appel trouvé.</div>';
+            }
+            var html = ''+
+            '<table style="width:100%; border-collapse:collapse; font-family:Roboto, Arial, Helvetica; font-size:13px;">'+
+            '<thead><tr style="text-align:left; border-bottom:1px solid rgba(0,0,0,0.08);">'+
+            '<th style="padding:8px 12px;">Date</th>'+
+            '<th style="padding:8px 12px;">Numéro</th>'+
+            '<th style="padding:8px 12px;">Durée</th>'+
+            '<th style="padding:8px 12px;">Statut</th>'+
+            '</tr></thead><tbody>';
+            for(var i=0;i<items.length;i++){
+                var it = items[i] || {};
+                var dateVal = pick(it, ["calldate","start","date","begintime","time"]);
+                var srcVal = pick(it, ["src","caller","from","clid"]);
+                var dstVal = pick(it, ["dst","callee","to","destination"]);
+                var durVal = pick(it, ["billsec","duration","dur"]);
+                var stVal  = pick(it, ["disposition","status","result"]);
+                // Déterminer la direction de l'appel:
+                // - Si dst == userNo99 => appel entrant
+                // - Si src == userNo99 => appel sortant
+                // - Si ni dans src ni dans dst => appel entrant (appel de groupe/queue)
+                var isOut = false;
+                if(userNo99){
+                    var srcStr = String(srcVal || '').trim();
+                    var dstStr = String(dstVal || '').trim();
+                    var userStr = String(userNo99).trim();
+                    if(dstStr === userStr){
+                        // Extension dans destination => entrant
+                        isOut = false;
+                    } else if(srcStr === userStr){
+                        // Extension dans source => sortant
+                        isOut = true;
+                    } else {
+                        // Ni dans src ni dans dst => appel de groupe/queue => entrant
+                        isOut = false;
+                    }
+                }
+                var rawClid = isOut ? (it.dstcnam || it.dstname || dstVal) : (it.clid || it.clidname || srcVal);
+                
+                // Parser le CLID pour extraire nom et numéro
+                // Format possible: "Nom" <numéro> ou juste numéro
+                var callerName = '';
+                var numero = isOut ? dstVal : srcVal;
+                var clidStr = String(rawClid || '');
+                var nameMatch = clidStr.match(/^"?([^"<]+)"?\s*<([^>]+)>/);
+                if(nameMatch){
+                    callerName = nameMatch[1].trim();
+                    numero = nameMatch[2].trim();
+                } else if(clidStr && clidStr !== numero){
+                    callerName = clidStr;
+                }
+                
+                // Option A: une seule icône combinée direction + statut (couleur)
+                var stNorm = String(stVal || '').toUpperCase();
+                var isAnswered = (stNorm === 'ANSWERED');
+                var color = isAnswered ? '#16a34a' : '#dc2626';
+                var dirIcon = isOut ? 'fa-level-up' : 'fa-level-down';
+                var titleTxt = (isOut ? 'Appel sortant' : 'Appel entrant') + ' — ' + (isAnswered ? 'répondu' : 'non répondu');
+                var rotClass = isOut ? 'history-diag-45 history-diag-45--up' : 'history-diag-45 history-diag-45--down';
+                var combinedIcon = '<i class="fa '+ dirIcon +' '+ rotClass +'" style="color:'+ color +'; font-size:18px;" title="'+ escHtml(titleTxt) +'" aria-label="'+ escHtml(titleTxt) +'" aria-hidden="false"></i>';
+                
+                // Afficher le numéro et le nom si disponible
+                var displayText = escHtml(numero);
+                if(callerName && callerName !== numero){
+                    displayText += ' <span style="color:#6b7280; font-size:12px;">(' + escHtml(callerName) + ')</span>';
+                }
+                var callBtn = '<button type="button" class="history-call" title="Composer" data-number="'+ escHtml(numero) +'" style="appearance:none; border:0; background:transparent; color:#2563eb; cursor:pointer; padding:0; text-align:left;">'+ displayText +'</button>';
+                
+                html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.04);">'+
+                    '<td style="padding:8px 12px;">'+ tryDate(dateVal) +'</td>'+
+                    '<td style="padding:8px 12px;">'+ callBtn +'</td>'+
+                    '<td style="padding:8px 12px;">'+ fmtDuration(durVal) +'</td>'+
+                    '<td style="padding:8px 12px;">'+ combinedIcon +'</td>'+
+                '</tr>';
+            }
+            html += '</tbody></table>';
+            return html;
+        }
+        function bindHistoryClicks(){
+            if(!contentEl) return;
+            var buttons = contentEl.querySelectorAll('.history-call');
+            buttons.forEach(function(btn){
+                btn.addEventListener('click', function(){
+                    var num = btn.getAttribute('data-number') || '';
+                    if(num){
+                        try{ if(window.DialByLine){ window.DialByLine('audio', null, num); } }
+                        catch(e){ console.error('Dial error', e); }
+                    }
+                });
+            });
+        }
+        function bindLdapDialClicks(){
+            if(!contentEl) return;
+            var buttons = contentEl.querySelectorAll('.ldap-call');
+            buttons.forEach(function(btn){
+                btn.addEventListener('click', function(){
+                    var num = btn.getAttribute('data-number') || '';
+                    if(num){
+                        try{ if(window.DialByLine){ window.DialByLine('audio', null, num); } }
+                        catch(e){ console.error('Dial error', e); }
+                    }
+                });
+            });
+        }
+        // ---- Visual Voicemail ----
+    function renderVoicemail(items, ctx){
+            if(!Array.isArray(items)){
+                try{ return '<pre style="white-space:pre-wrap; word-break:break-word; padding:12px;">'+ escHtml(JSON.stringify(items, null, 2)) +'</pre>'; }
+                catch(e){ return '<div style="padding:12px;">'+ escHtml(String(items)) +'</div>'; }
+            }
+            if(items.length === 0){
+                return '<div style="padding:12px;">Aucun message vocal.</div>';
+            }
+            ctx = ctx || {};
+            var audioBase = ctx.audioBase || '';
+            var apiExt    = ctx.apiExt || '';
+            var apiKey    = ctx.apiKey || '';
+            var moveBase  = ctx.moveBase || '';
+            var html = ''+
+                '<table style="width:100%; border-collapse:collapse; font-family:Roboto, Arial, Helvetica; font-size:13px;">'+
+                '<thead><tr style="text-align:left; border-bottom:1px solid rgba(0,0,0,0.08);">'+
+                '<th style="padding:8px 12px;">Date</th>'+
+                '<th style="padding:8px 12px;">Appelant</th>'+
+                '<th style="padding:8px 12px;">Durée</th>'+
+                '<th style="padding:8px 12px;">Lecture</th>'+
+                '</tr></thead><tbody>';
+            for(var i=0;i<items.length;i++){
+                var it = items[i] || {};
+                // Supporte les champs FR renvoyés par l'API: "Appelant", "Date", "duree", "fichier"
+                var dateVal = pick(it, ['origtime','time','date','Date','created','calldate']);
+                var fromVal = pick(it, ['callerid','cid','cid_num','from','src','caller','Appelant']);
+                var durVal  = pick(it, ['duration','length','len','sec','billsec','duree']);
+                var audio   = pick(it, ['url','audioUrl','recording','wav','mp3','audio','file','recording_url','fichier']);
+                var dossier = pick(it, ['folder','dossier']);
+                var fichier = pick(it, ['file','fichier']);
+                var msgId   = pick(it, ['message_id','id','uid','key']);
+                // Mettre en gras les éléments dont le dossier est INBOX (casse ignorée)
+                var isInbox = false;
+                try{ isInbox = String(dossier || '').toUpperCase() === 'INBOX'; }catch(e){ isInbox = false; }
+
+                // Construire l'URL audio si dossier/fichier fournis
+                var audioUrl = '';
+                if(dossier && fichier && audioBase){
+                    try{
+                        var u = new URL(audioBase, window.location.origin);
+                        if(apiExt) u.searchParams.set('extension', apiExt);
+                        u.searchParams.set('dossier', String(dossier));
+                        u.searchParams.set('fichier', String(fichier));
+                        if(apiKey) u.searchParams.set('api_key', apiKey);
+                        try{ var pfx = localStorage.getItem('prefixe') || ''; if(pfx) u.searchParams.set('prefixe', pfx); }catch(e){}
+                        audioUrl = u.toString();
+                    }catch(e){ /* ignore */ }
+                }
+                if(!audioUrl && audio){ audioUrl = audio; }
+                var numberBtn = '<button type="button" class="voicemail-call" data-number="'+ escHtml(fromVal) +'" style="appearance:none; border:0; background:transparent; color:#2563eb; cursor:pointer; padding:0;">'+ escHtml(fromVal) +'</button>';
+                // Gestion des cas: 1) endpoint direct binaire, 2) endpoint JSON { minetype, audio(base64) }, 3) données déjà incluses (it.minetype + it.audio)
+                var action = '';
+                var mimeInline = pick(it, ['minetype','mime','mimetype']);
+                var b64Inline  = (it && it.audio) ? String(it.audio) : '';
+                if(b64Inline && (mimeInline || '')){
+                    // Encodage direct en Data URL si c'est réellement du base64 plausible
+                    var isBase64 = /^[A-Za-z0-9+/=\r\n]+$/.test(b64Inline.replace(/\s+/g,''));
+                    if(isBase64){
+                        var dataUrl = 'data:' + escHtml(mimeInline || 'audio/wav') + ';base64,' + b64Inline.replace(/\s+/g,'');
+                        action = '<audio controls preload="metadata" style="width:220px; max-width:100%;" src="'+ dataUrl +'"></audio>';
+                    }
+                }
+                if(!action){
+                    if(audioUrl){
+                        // On diffère le chargement: on affiche un bouton explicite qui fera le fetch puis activera le player
+            var btn = '<button type="button" class="vm-load" data-endpoint="'+ escHtml(audioUrl) +'"'
+                + ' style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; background:#f9fafb; cursor:pointer;">'
+                + '<i class="fa fa-download"></i> Lire'
+                + '</button>';
+               var delBase = ctx.deleteBase || '';
+                        var delBtn = '';
+                        if(msgId && delBase){
+                            delBtn = '<button type="button" class="vm-delete" data-id="'+ escHtml(msgId) +'" data-endpoint="'+ escHtml(delBase) +'" data-ext="'+ escHtml(apiExt || '') +'" data-key="'+ escHtml(apiKey || '') +'"'
+                                   + ' title="Supprimer" aria-label="Supprimer ce message"'
+                                   + ' style="padding:6px 10px; border:1px solid #fecaca; border-radius:6px; background:#fef2f2; color:#b91c1c; cursor:pointer;">'
+                                   + '<i class="fa fa-trash"></i>'
+                                   + '</button>';
+                        }
+         action = '<div class="vm-audio" style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap; width:100%;"'
+                   + (msgId ? ' data-msg-id="'+ escHtml(msgId) +'"' : '')
+                   + (moveBase ? ' data-move="'+ escHtml(moveBase) +'"' : '')
+                   + (apiExt ? ' data-ext="'+ escHtml(apiExt) +'"' : '')
+                   + (apiKey ? ' data-key="'+ escHtml(apiKey) +'"' : '')
+                   + (dossier ? ' data-folder="'+ escHtml(dossier) +'"' : '')
+                   + '>'
+                               +   btn
+                   +   '<audio controls preload="none" style="flex:1 1 auto; width:auto; min-width:240px; max-width:100%;" aria-label="Message vocal"></audio>'
+                               +   (delBtn ? delBtn : '')
+                               + '</div>';
+                    } else {
+                        action = '<span style="color:#6b7280;">(pas d\'audio)</span>';
+                    }
+                }
+                var rowStyle = 'border-bottom:1px solid rgba(0,0,0,0.04);';
+                if(isInbox){ rowStyle = 'font-weight:600; ' + rowStyle; }
+                html += '<tr style="'+ rowStyle +'">'+
+                    '<td style="padding:8px 12px;">'+ tryDate(dateVal) +'</td>'+
+                    '<td style="padding:8px 12px;">'+ numberBtn +'</td>'+
+                    '<td style="padding:8px 12px;">'+ fmtDuration(durVal) +'</td>'+
+                    '<td style="padding:8px 12px;">'+ action +'</td>'+
+                '</tr>';
+            }
+            html += '</tbody></table>';
+            return html;
+        }
+
+        function bindVoicemailClicks(){
+            if(!contentEl) return;
+            var buttons = contentEl.querySelectorAll('.voicemail-call');
+            buttons.forEach(function(btn){
+                btn.addEventListener('click', function(){
+                    var num = btn.getAttribute('data-number') || '';
+                    if(num){ try{ if(window.DialByLine){ window.DialByLine('audio', null, num); } } catch(e){} }
+                });
+            });
+        }
+
+    function loadVoicemail(){
+            var domain = getCfg(["SipDomain","SipDomaine"]);
+            var ext    = getCfg(["SipUsername","SipUserID","profileUserID"]) || '';
+            // Normaliser l'extension: si SipUsername commence par 99 et a 5 caractères, retirer 99
+            var apiExt = ext;
+            try{
+                var s = String(ext || '');
+                if(/^99\d{3}$/.test(s)) apiExt = s.substring(2);
+            }catch(e){}
+            var apiKey = getCfg(["api_key","ApiKey","API_KEY"]) || '';
+
+            openPanel("Visual Voicemail", '<div style="padding:12px;">Chargement…</div>', 'voicemail');
+
+            if(!/^https?:\/\//i.test(domain)) domain = 'https://' + domain;
+            domain = domain.replace(/\/$/, "");
+
+            var base = localStorage.getItem('VoicemailListUrl') || (domain + '/sipapp-api/voicemail/get_messages');
+            var audioBase = localStorage.getItem('VoicemailGetUrl') || (domain + '/sipapp-api/voicemail/get_message');
+            var deleteBase = localStorage.getItem('VoicemailDeleteUrl') || (domain + '/sipapp-api/voicemail/delete_voicemail');
+            var moveBase = localStorage.getItem('VoicemailMoveUrl') || (domain + '/sipapp-api/voicemail/move_message');
+            try{
+                var u = new URL(base, window.location.origin);
+                if(apiExt) u.searchParams.set('extension', apiExt);
+                if(apiKey) u.searchParams.set('api_key', apiKey);
+                try{ var pfx = localStorage.getItem('prefixe') || ''; if(pfx) u.searchParams.set('prefixe', pfx); }catch(e){}
+
+                fetch(u.toString(), { method: 'GET' })
+                    .then(function(res){
+                        if(!res.ok) throw new Error('HTTP ' + res.status);
+                        var ct = res.headers.get('content-type') || '';
+                        if(ct.indexOf('application/json') !== -1) return res.json();
+                        return res.text().then(function(t){ try{ return JSON.parse(t); }catch(e){ return t; } });
+                    })
+                    .then(function(data){
+                        var list = toArrayFromResponse(data) || [];
+                        // Si l'API renvoie un objet clé->message, préserver le message_id
+                        function mapWithIds(obj){
+                            return Object.keys(obj).map(function(k){
+                                var it = obj[k] || {};
+                                if(!it.message_id) it.message_id = k;
+                                return it;
+                            });
+                        }
+                        // Si pas d'items trouvés, tenter explicitement Data (string JSON ou objet)
+                        if((!list || list.length === 0) && data){
+                            try{
+                                var D = data.Data != null ? data.Data : data.data;
+                                if(typeof D === 'string'){
+                                    var parsed = JSON.parse(D);
+                                    var arr = toArrayFromResponse(parsed);
+                                    if(Array.isArray(arr)){
+                                        list = arr;
+                                    } else if(parsed && typeof parsed === 'object'){
+                                        // Objet d'objets => convertir en tableau en préservant l'ID
+                                        list = mapWithIds(parsed);
+                                    }
+                                } else if(D && typeof D === 'object'){
+                                    var arr2 = toArrayFromResponse(D);
+                                    if(Array.isArray(arr2)){
+                                        list = arr2;
+                                    } else {
+                                        list = mapWithIds(D);
+                                    }
+                                }
+                            }catch(e){ /* ignore */ }
+                        }
+                        // Dernier repli: si data lui-même est un objet clé->message
+                        // ATTENTION: ne pas traiter l'enveloppe API { status, message, data } comme une liste
+                        if((!list || !list.length) && data && typeof data === 'object' && !Array.isArray(data)){
+                            try{
+                                var hasEnvelopeKeys = Object.prototype.hasOwnProperty.call(data,'data') || Object.prototype.hasOwnProperty.call(data,'Data');
+                                if(!hasEnvelopeKeys){
+                                    var kList = Object.keys(data);
+                                    if(kList.length && !kList.every(function(k){ return /^\d+$/.test(k); })){
+                                        list = mapWithIds(data);
+                                    }
+                                }
+                            }catch(e){}
+                        }
+
+                        // Affichage direct de la liste, sans entête d'analyse
+                        contentEl.innerHTML = renderVoicemail(list, { audioBase: audioBase, apiExt: apiExt, apiKey: apiKey, deleteBase: deleteBase, moveBase: moveBase });
+                        sizePanelToContent();
+                        bindVoicemailClicks();
+                        bindVoicemailDeleteClicks();
+                        // Préparer les lecteurs audio pour charger JSON base64 ou binaire à la demande
+                        try{ setupVoicemailPlayers(); }catch(e){}
+                    })
+                    .catch(function(err){
+                        contentEl.innerHTML = '<div style="padding:12px; color:#b91c1c;">Impossible de charger la messagerie ('+ escHtml(err.message) +').</div>';
+                    });
+            }catch(e){
+                contentEl.innerHTML = '<div style="padding:12px; color:#b91c1c;">URL invalide: '+ escHtml(e && e.message ? e.message : String(e)) +'</div>';
+            }
+        }
+        // Convertit base64 -> Blob
+        function base64ToBlob(b64, mime){
+            mime = mime || 'application/octet-stream';
+            try{
+                var byteChars = atob(b64.replace(/\s+/g, ''));
+                var byteNums = new Array(byteChars.length);
+                for(var i=0;i<byteChars.length;i++){ byteNums[i] = byteChars.charCodeAt(i); }
+                var byteArray = new Uint8Array(byteNums);
+                return new Blob([byteArray], { type: mime });
+            }catch(e){ return null; }
+        }
+        // Attache le chargement paresseux des sources audio des messages vocaux
+        function setupVoicemailPlayers(){
+            if(!contentEl) return;
+            // Helper: télécharge un endpoint (blob binaire ou JSON {minetype, audio(base64)})
+            // et affecte la source à un <audio>. Si possible, amplifie le volume via un rendu offline.
+            function loadEndpointToAudio(endpoint, aud){
+                // --- helpers d'amplification ---
+                function getVoicemailGain(){
+                    var v = parseFloat(localStorage.getItem('VoicemailGain') || '1.6');
+                    if(!isFinite(v) || v < 1) v = 1.6;
+                    return Math.min(v, 4.0);
+                }
+                function audioBufferToWav(buffer){
+                    var numOfChan = buffer.numberOfChannels;
+                    var sampleRate = buffer.sampleRate;
+                    var length = buffer.length * numOfChan * 2 + 44;
+                    var ab = new ArrayBuffer(length);
+                    var view = new DataView(ab);
+                    function writeString(view, offset, string){
+                        for (var i = 0; i < string.length; i++){
+                            view.setUint8(offset + i, string.charCodeAt(i));
+                        }
+                    }
+                    var channels = [];
+                    for (var i = 0; i < numOfChan; i++){
+                        channels.push(buffer.getChannelData(i));
+                    }
+                    // Interleave
+                    var interleaved = new Float32Array(buffer.length * numOfChan);
+                    var index = 0;
+                    var inputIndex = 0;
+                    while (index < interleaved.length){
+                        for (var i = 0; i < numOfChan; i++){
+                            interleaved[index++] = channels[i][inputIndex];
+                        }
+                        inputIndex++;
+                    }
+                    // Write WAV header
+                    writeString(view, 0, 'RIFF');
+                    view.setUint32(4, 36 + interleaved.length * 2, true);
+                    writeString(view, 8, 'WAVE');
+                    writeString(view, 12, 'fmt ');
+                    view.setUint32(16, 16, true);
+                    view.setUint16(20, 1, true); // PCM
+                    view.setUint16(22, numOfChan, true);
+                    view.setUint32(24, sampleRate, true);
+                    view.setUint32(28, sampleRate * numOfChan * 2, true);
+                    view.setUint16(32, numOfChan * 2, true);
+                    view.setUint16(34, 16, true);
+                    writeString(view, 36, 'data');
+                    view.setUint32(40, interleaved.length * 2, true);
+                    // Write PCM samples
+                    var offset = 44;
+                    for (var i = 0; i < interleaved.length; i++, offset += 2){
+                        var s = Math.max(-1, Math.min(1, interleaved[i]));
+                        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                    }
+                    return new Blob([view], { type: 'audio/wav' });
+                }
+                var decodeCtx = null;
+                function getDecodeCtx(){
+                    if(decodeCtx && decodeCtx.state !== 'closed') return decodeCtx;
+                    try{ decodeCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+                    catch(e){ decodeCtx = null; }
+                    return decodeCtx;
+                }
+                function amplifyBlobIfPossible(blob, gain){
+                    return new Promise(function(resolve){
+                        if(!blob || !(gain > 1.01)) return resolve(blob);
+                        var ctx = getDecodeCtx();
+                        if(!ctx){ return resolve(blob); }
+                        blob.arrayBuffer().then(function(arrBuf){
+                            ctx.decodeAudioData(arrBuf).then(function(audioBuf){
+                                try{
+                                    var OfflineCtx = (window.OfflineAudioContext || window.webkitOfflineAudioContext);
+                                    if(!OfflineCtx){ return resolve(blob); }
+                                    var off = new OfflineCtx(audioBuf.numberOfChannels, audioBuf.length, audioBuf.sampleRate);
+                                    var src = off.createBufferSource();
+                                    src.buffer = audioBuf;
+                                    var g = off.createGain();
+                                    g.gain.value = gain;
+                                    src.connect(g);
+                                    g.connect(off.destination);
+                                    src.start(0);
+                                    off.startRendering().then(function(rendered){
+                                        try{
+                                            var boosted = audioBufferToWav(rendered);
+                                            resolve(boosted || blob);
+                                        }catch(e){ resolve(blob); }
+                                    }).catch(function(){ resolve(blob); });
+                                }catch(e){ resolve(blob); }
+                            }).catch(function(){ resolve(blob); });
+                        }).catch(function(){ resolve(blob); });
+                    });
+                }
+                // --- téléchargement & affectation ---
+                return fetch(endpoint, { method:'GET' })
+                    .then(function(res){
+                        var ct = (res.headers && res.headers.get('content-type')) || '';
+                        if(ct.indexOf('application/json') !== -1){ return res.json().then(function(js){ return { kind:'json', data: js }; }); }
+                        return res.blob().then(function(bl){ return { kind:'blob', data: bl }; });
+                    })
+                    .then(function(pkt){
+                        if(!pkt) throw new Error('Réponse vide');
+                        var url='';
+                        var gain = getVoicemailGain();
+                        if(pkt.kind === 'blob'){
+                            return amplifyBlobIfPossible(pkt.data, gain).then(function(finalBlob){
+                                url = URL.createObjectURL(finalBlob);
+                                aud.src = url;
+                                return url;
+                            });
+                        } else {
+                            var js = pkt.data != null ? pkt.data : {};
+                            var info = extractAudioFromPayload(js);
+                            var mime = info.mime;
+                            var b64  = info.b64;
+                            if(!b64) throw new Error('Aucune donnée audio base64');
+                            var blob = base64ToBlob(b64, mime);
+                            if(!blob) throw new Error('Décodage base64 échoué');
+                            return amplifyBlobIfPossible(blob, gain).then(function(finalBlob){
+                                url = URL.createObjectURL(finalBlob);
+                                aud.src = url;
+                                return url;
+                            });
+                        }
+                    });
+            }
+            function extractAudioFromPayload(payload){
+                // payload peut être un objet ou une chaîne JSON
+                var obj = payload;
+                try{
+                    if(typeof obj === 'string'){
+                        obj = JSON.parse(obj);
+                    }
+                }catch(e){ /* ignore parse error */ }
+                // si obj.data est une string JSON, parser
+                var inner = obj && obj.data !== undefined ? obj.data : null;
+                try{
+                    if(typeof inner === 'string'){
+                        inner = JSON.parse(inner);
+                    }
+                }catch(e){ /* ignore */ }
+                var mime = (obj && (obj.minetype || obj.mimetype)) || (inner && (inner.minetype || inner.mimetype)) || 'audio/wav';
+                var b64  = (obj && obj.audio) || (inner && inner.audio) || '';
+                return { mime: mime, b64: b64 };
+            }
+            // 1) Nouveau workflow: bouton explicite
+            var btns = contentEl.querySelectorAll('button.vm-load[data-endpoint]');
+            btns.forEach(function(btn){
+                var endpoint = btn.getAttribute('data-endpoint');
+                var parent = btn.closest('.vm-audio');
+                var aud = parent ? parent.querySelector('audio') : null;
+                if(!endpoint || !aud) return;
+                var busy = false;
+                btn.addEventListener('click', function(){
+                    if(busy) return;
+                    busy = true;
+                    var oldHtml = btn.innerHTML;
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="fa fa-circle-o-notch fa-spin"></span> Chargement…';
+                    loadEndpointToAudio(endpoint, aud)
+                        .then(function(){
+                            // Une fois chargé, on peut masquer le bouton
+                            btn.style.display = 'none';
+                            // Et jouer sur action utilisateur
+                            aud.play().catch(function(){ /* ignore autoplay fail */ });
+                        })
+                        .catch(function(err){
+                            console.error('Chargement audio voicemail', err);
+                            alert('Impossible de lire le message: ' + (err && err.message ? err.message : err));
+                        })
+                        .finally(function(){
+                            btn.disabled = false;
+                            btn.innerHTML = oldHtml;
+                            busy = false;
+                        });
+                });
+            });
+
+            // Auto-chargement: alimenter tous les lecteurs visibles sans action utilisateur
+            (function autoFeedAll(){
+                var arr = Array.prototype.slice.call(btns || []);
+                if(!arr.length) return;
+                var concurrency = 3;
+                var i = 0;
+                var active = 0;
+                function next(){
+                    while(active < concurrency && i < arr.length){
+                        var b = arr[i++];
+                        if(!b || b.dataset.autoloaded === '1') continue;
+                        var endpoint = b.getAttribute('data-endpoint');
+                        var parent = b.closest('.vm-audio');
+                        var aud = parent ? parent.querySelector('audio') : null;
+                        if(!endpoint || !aud){ continue; }
+                        active++;
+                        b.dataset.autoloaded = '1';
+                        // Masquer le bouton puisqu'on précharge automatiquement
+                        try{ b.style.display = 'none'; }catch(e){}
+                        loadEndpointToAudio(endpoint, aud)
+                            .then(function(){
+                                // Charger les métadonnées sans autoplay
+                                try{ aud.load(); }catch(e){}
+                            })
+                            .catch(function(err){
+                                console.error('Chargement audio voicemail (auto)', err);
+                                try{
+                                    var parent = aud.parentElement;
+                                    if(parent){ parent.insertAdjacentHTML('beforeend', '<div style="color:#b91c1c; font-size:12px; margin-top:4px;">Audio indisponible</div>'); }
+                                }catch(e){}
+                            })
+                            .finally(function(){ active--; try{ sizePanelToContent(); }catch(e){} next(); });
+                    }
+                }
+                next();
+            })();
+
+            // Marquer comme "lu" au premier démarrage de la lecture
+            function markAsReadIfNeeded(container){
+                try{
+                    if(!container || container.dataset.read === '1') return;
+                    var move = container.getAttribute('data-move') || '';
+                    var id   = container.getAttribute('data-msg-id') || '';
+                    var ext  = container.getAttribute('data-ext') || '';
+                    var key  = container.getAttribute('data-key') || '';
+                    if(!move || !id || !ext) return; // paramètres insuffisants
+                    var u = new URL(move, window.location.origin);
+                    u.searchParams.set('message_id', id);
+                    if(ext) u.searchParams.set('extension', ext);
+                    if(key) u.searchParams.set('api_key', key);
+                    try{ var pfx = localStorage.getItem('prefixe') || ''; if(pfx) u.searchParams.set('prefixe', pfx); }catch(e){}
+                    fetch(u.toString(), { method: 'GET' })
+                        .then(function(res){ /* on ignore le corps, l'appel suffit */ })
+                        .catch(function(err){ console.warn('move_message échoué', err); })
+                        .finally(function(){
+                            container.dataset.read = '1';
+                            // feedback visuel: alléger la graisse si précédemment en gras (INBOX)
+                            try{ var tr = container.closest('tr'); if(tr){ tr.style.fontWeight = 'normal'; } }catch(e){}
+                        });
+                }catch(e){ /* ignore */ }
+            }
+            var containers = contentEl.querySelectorAll('.vm-audio[data-msg-id]');
+            containers.forEach(function(c){
+                var aud = c.querySelector('audio');
+                if(!aud) return;
+                // Au premier "play" réellement déclenché par l'utilisateur
+                aud.addEventListener('play', function(){ markAsReadIfNeeded(c); }, { once:true });
+            });
+            // 2) Compat : ancienne version qui écoutait l'event play sur un <audio data-endpoint>
+            var nodes = contentEl.querySelectorAll('audio[data-endpoint]');
+            nodes.forEach(function(aud){
+                var loaded = false;
+                var endpoint = aud.getAttribute('data-endpoint');
+                if(!endpoint) return;
+                function loadOnceAndPlay(){
+                    if(loaded) return; // déjà chargé
+                    loaded = true;
+                    fetch(endpoint, { method:'GET' })
+                        .then(function(res){
+                            var ct = (res.headers && res.headers.get('content-type')) || '';
+                            if(ct.indexOf('application/json') !== -1){ return res.json().then(function(js){ return { kind:'json', data: js }; }); }
+                            return res.blob().then(function(bl){ return { kind:'blob', data: bl }; });
+                        })
+                        .then(function(pkt){
+                            if(!pkt) throw new Error('Réponse vide');
+                            if(pkt.kind === 'blob'){
+                                var url = URL.createObjectURL(pkt.data);
+                                aud.src = url;
+                                aud.play().catch(function(){ /* ignore autoplay fail */ });
+                                return;
+                            }
+                            var js = pkt.data != null ? pkt.data : {};
+                            var info = extractAudioFromPayload(js);
+                            var mime = info.mime;
+                            var b64  = info.b64;
+                            if(!b64){ throw new Error('Aucune donnée audio base64'); }
+                            var blob = base64ToBlob(b64, mime);
+                            if(!blob) throw new Error('Décodage base64 échoué');
+                            var url2 = URL.createObjectURL(blob);
+                            aud.src = url2;
+                            aud.play().catch(function(){ /* ignore autoplay fail */ });
+                            try{ var cont = aud.closest('.vm-audio'); if(cont){ markAsReadIfNeeded(cont); } }catch(e){}
+                        })
+                        .catch(function(err){
+                            console.error('Chargement audio voicemail', err);
+                            try{
+                                var parent = aud.parentElement;
+                                if(parent){ parent.insertAdjacentHTML('beforeend', '<div style="color:#b91c1c; font-size:12px; margin-top:4px;">Audio indisponible</div>'); }
+                            }catch(e){}
+                        });
+                }
+                aud.addEventListener('play', loadOnceAndPlay, { once:false });
+            });
+        }
+        // Suppression d'un message vocal
+        function bindVoicemailDeleteClicks(){
+            if(!contentEl) return;
+            var btns = contentEl.querySelectorAll('.vm-delete');
+            btns.forEach(function(btn){
+                btn.addEventListener('click', function(){
+                    var id = btn.getAttribute('data-id');
+                    var endpoint = btn.getAttribute('data-endpoint');
+                    var ext = btn.getAttribute('data-ext') || '';
+                    var apiKey = btn.getAttribute('data-key') || '';
+                    if(!id || !endpoint) return;
+                    var u;
+                    try{
+                        u = new URL(endpoint, window.location.origin);
+                    }catch(e){ return alert('URL de suppression invalide'); }
+                    u.searchParams.set('message_id', id);
+                    if(ext) u.searchParams.set('extension', ext);
+                    if(apiKey) u.searchParams.set('api_key', apiKey);
+                    try{ var pfx = localStorage.getItem('prefixe') || ''; if(pfx) u.searchParams.set('prefixe', pfx); }catch(e){}
+                    var old = btn.innerHTML;
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="fa fa-circle-o-notch fa-spin"></span>';
+                    fetch(u.toString(), { method:'GET' })
+                        .then(function(res){
+                            if(!res.ok) throw new Error('HTTP '+res.status);
+                            return res.json().catch(function(){ return { status:'OK' }; });
+                        })
+                        .then(function(js){
+                            // On considère la suppression réussie si la réponse n'indique pas explicitement une erreur
+                            var row = btn.closest('tr');
+                            if(row){ row.remove(); try{ sizePanelToContent(); }catch(e){} }
+                        })
+                        .catch(function(err){
+                            alert('Échec de la suppression: ' + (err && err.message ? err.message : err));
+                        })
+                        .finally(function(){
+                            btn.disabled = false;
+                            btn.innerHTML = old;
+                        });
+                });
+            });
+        }
+    function loadHistory(){
+            var domain = getCfg(["SipDomain","SipDomaine"]);
+            var ext    = getCfg(["SipUsername","SipUserID","profileUserID"]);
+            var apiKey = getCfg(["api_key","ApiKey","API_KEY"]);
+            var prefixe = (function(){ try{ return localStorage.getItem('prefixe') || ''; }catch(e){ return ''; } })();
+            var userNo99 = (ext ? String(ext) : "").replace(/^99/, "");
+        // Extension envoyée à l'API getcalls: retirer le préfixe '99' s'il est présent
+        var apiExt = (ext ? String(ext) : "");
+        try{ if(/^99/.test(apiExt)) apiExt = apiExt.substring(2); }catch(e){}
+
+            openPanel("Historique des appels", '<div style="padding:12px;">Chargement…</div>', 'history');
+
+            if(!domain || !ext){
+                contentEl.innerHTML = '<div style="padding:12px; color:#b91c1c;">Configuration manquante: domaine ou extension introuvable.</div>';
+                return;
+            }
+            if(!/^https?:\/\//i.test(domain)) domain = 'https://' + domain;
+            // Nettoyer les slash
+            domain = domain.replace(/\/$/, "");
+
+            var url = domain + '/sipapp-api/cdr/calls?extension=' + encodeURIComponent(apiExt);
+            if(apiKey) url += '&api_key=' + encodeURIComponent(apiKey);
+            if(prefixe) url += '&prefixe=' + encodeURIComponent(prefixe);
+
+            fetch(url, { method: 'GET' })
+                .then(function(res){
+                    if(!res.ok) throw new Error('HTTP '+res.status);
+                    var ct = res.headers.get('content-type') || '';
+                    if(ct.indexOf('application/json') !== -1) return res.json();
+                    return res.text().then(function(t){
+                        try{ return JSON.parse(t); }catch(e){ return t; }
+                    });
+                })
+                .then(function(data){
+                    var list = toArrayFromResponse(data) || [];
+                    contentEl.innerHTML = renderHistory(list, userNo99);
+                        sizePanelToContent();
+                    bindHistoryClicks();
+                })
+                .catch(function(err){
+                    contentEl.innerHTML = '<div style="padding:12px; color:#b91c1c;">Impossible de charger l\'historique ('+ escHtml(err.message) +').<br/>Vérifiez le domaine, la clé API et les droits CORS.</div>';
+                });
+        }
+
+        function positionPanel(){
+            if(!panel || !phoneEl) return;
+            var rect = phoneEl.getBoundingClientRect();
+            // Coller le panneau au bord gauche de #Phone (il occupe la zone de padding)
+            var left = Math.round(rect.left);
+            panel.style.left = left + "px";
+        }
+
+        function sizePanelToContent(){
+            if(!panel || !contentEl) return;
+            // Largeur souhaitée basée sur le contenu réel (scrollWidth),
+            // avec bornes adaptatives par type de panneau et surcharges localStorage.
+            var type = panel.getAttribute('data-type') || 'default';
+            var defaults = {
+                'voicemail': { min: 520, max: 550 },
+                'history':   { min: 420, max: 420 },
+                'contacts':  { min: 300, max: 300 },
+                'favorites': { min: 320, max: 420 },
+                'functions': { min: 420, max: 420 },
+                'default':   { min: 360, max: 560 }
+            };
+            var def = defaults[type] || defaults['default'];
+            var minPref = localStorage.getItem('SidepanelMinWidth_' + type) || localStorage.getItem('SidepanelMinWidth');
+            var maxPref = localStorage.getItem('SidepanelMaxWidth_' + type) || localStorage.getItem('SidepanelMaxWidth');
+            var minW = parseInt(minPref || String(def.min), 10);
+            var maxW = parseInt(maxPref || String(def.max), 10);
+            if(!isFinite(minW) || minW < 280) minW = 280;
+            if(!isFinite(maxW) || maxW < minW) maxW = Math.max(minW, 720);
+            var contentW = Math.ceil(contentEl.scrollWidth || 0);
+            // marge interne pour respirer
+            var desiredW = contentW > 0 ? (contentW + 24) : minW;
+            desiredW = Math.max(minW, Math.min(desiredW, maxW));
+            document.body.style.setProperty('--sidepanel-w', desiredW + 'px');
+            panel.style.width = desiredW + 'px';
+        }
+
+        // Fonctions avancées: DND/CF depuis l'API forward_detail
+        function loadAdvancedFunctions(){
+            var domain = getCfg(["SipDomain","SipDomaine"]);
+            var ext    = getCfg(["SipUsername","SipUserID","profileUserID"]) || '';
+            var apiKey = getCfg(["api_key","ApiKey","API_KEY"]) || '';
+            // Normaliser l'extension attendue par l'API (exemple fourni: 103). Si 99xxx, retirer 99.
+            var apiExt = ext;
+            try{ var s = String(ext||''); if(/^99\d{3}$/.test(s)) apiExt = s.substring(2); }catch(e){}
+
+            // Injecter le CSS de toggle une seule fois
+            (function ensureAdvancedToggleCss(){
+                if(document.getElementById('advanced-toggle-css')) return;
+                var css = document.createElement('style');
+                css.id = 'advanced-toggle-css';
+                css.textContent = ''
+                    + '.toggle-switch{display:inline-flex;align-items:center;gap:8px;user-select:none;}\n'
+                    + '.toggle-switch input{position:absolute;opacity:0;width:0;height:0;}\n'
+                    + '.toggle-switch .slider{position:relative;width:44px;height:24px;background:#e5e7eb;border-radius:9999px;transition:background .2s ease;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06);}\n'
+                    + '.toggle-switch .slider::before{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .2s ease;}\n'
+                    + '.toggle-switch input:checked + .slider{background:#10b981;}\n'
+                    + '.toggle-switch input:checked + .slider::before{transform:translateX(20px);}\n'
+                    + '.toggle-switch .toggle-label{font-size:12px;color:#6b7280;}\n'
+                    + '.toggle-switch input:checked ~ .toggle-label{color:#065f46;font-weight:500;}\n';
+                document.head.appendChild(css);
+            })();
+
+            openPanel('Fonctions avancées', '<div style="padding:12px;">Chargement…</div>', 'functions');
+
+            if(!/^https?:\/\//i.test(domain)) domain = 'https://' + domain;
+            domain = domain.replace(/\/$/, '');
+
+            var base = localStorage.getItem('ForwardDetailUrl') || (domain + '/sipapp-api/forward/forward_detail');
+            var u;
+            try{
+                u = new URL(base, window.location.origin);
+                if(apiExt) u.searchParams.set('extension', apiExt);
+                if(apiKey) u.searchParams.set('api_key', apiKey);
+            }catch(e){
+                contentEl.innerHTML = '<div style="padding:12px; color:#b91c1c;">URL invalide pour forward_detail.</div>';
+                return;
+            }
+
+            function strToBool(v){
+                if(typeof v === 'boolean') return v;
+                if(v == null) return false;
+                if(typeof v === 'number') return v !== 0;
+                var s = String(v).trim().toLowerCase();
+                if(s === '') return false;
+                var truthy = ['1','true','on','enabled','enable','active','yes','y'];
+                var falsy  = ['0','false','off','disabled','disable','inactive','no','n'];
+                if(truthy.indexOf(s) !== -1) return true;
+                if(falsy.indexOf(s)  !== -1) return false;
+                // Par défaut: toute chaîne non vide qui n'est pas explicitement falsy est considérée false ici (conservateur)
+                return false;
+            }
+
+            function extractForwardState(payload){
+                // Accepte { data: {...} } ou data en JSON string
+                var data = (payload && (payload.data != null ? payload.data : payload.Data)) || payload || {};
+                try{ if(typeof data === 'string'){ data = JSON.parse(data); } }catch(e){}
+                var obj = (data && typeof data === 'object') ? data : {};
+
+                // DND: chercher un booléen/flag plausible
+                var dnd = false;
+                var dndKeys = ['dnd','DND','do_not_disturb','dnd_enabled','dnd_status','is_dnd','enable_dnd'];
+                for(var i=0;i<dndKeys.length;i++){
+                    var k = dndKeys[i];
+                    if(Object.prototype.hasOwnProperty.call(obj,k)){
+                        dnd = strToBool(obj[k]);
+                        break;
+                    }
+                }
+
+                // CF enabled + number
+                var cfEnabled = false;
+                var cfNumber = '';
+                var cfEnableKeys = ['cf','CF','call_forward','call_forwarding','cfu_enabled','cf_enabled','call_forward_unconditional','forward_active'];
+                var cfNumberKeys = ['cf_number','cfu_number','forward_number','number','destination','to','phone'];
+                for(var j=0;j<cfEnableKeys.length;j++){
+                    var kk = cfEnableKeys[j];
+                    if(Object.prototype.hasOwnProperty.call(obj,kk)){
+                        cfEnabled = strToBool(obj[kk]);
+                        break;
+                    }
+                }
+                for(var t=0;t<cfNumberKeys.length;t++){
+                    var nk = cfNumberKeys[t];
+                    if(Object.prototype.hasOwnProperty.call(obj,nk)){
+                        var nv = obj[nk];
+                        if(nv != null){ cfNumber = String(nv); break; }
+                    }
+                }
+                // Règle demandée: le toggle CF est actif (vert) si et seulement si le numéro n'est pas vide
+                try{
+                    var trimmed = String(cfNumber || '').trim();
+                    cfEnabled = trimmed.length > 0;
+                }catch(e){}
+                return { dnd: dnd, cfEnabled: cfEnabled, cfNumber: cfNumber, raw: obj };
+            }
+
+            fetch(u.toString(), { method:'GET' })
+                .then(function(res){
+                    if(!res.ok) throw new Error('HTTP ' + res.status);
+                    var ct = res.headers.get('content-type') || '';
+                    if(ct.indexOf('application/json') !== -1) return res.json();
+                    return res.text().then(function(t){ try{ return JSON.parse(t); }catch(e){ return { data: t }; } });
+                })
+                .then(function(js){
+                    var state = extractForwardState(js || {});
+                    var html = ''
+                        + '<div style="padding:12px;">'
+                        +   '<div style="margin-bottom:12px; font-weight:500;">Paramètres de ligne</div>'
+                        +   '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:8px;">'
+                        +       '<div>'
+                        +           '<div style="font-weight:500;">Ne pas déranger (DND)</div>'
+                        +           '<div style="font-size:12px; color:#6b7280;">Empêche la sonnerie et les appels entrants.</div>'
+                        +       '</div>'
+                        +       '<label class="toggle-switch" aria-label="DND" role="switch">'
+                        +           '<input id="toggleDnd" type="checkbox" '+ (state.dnd ? 'checked' : '') +' />'
+                        +           '<span class="slider" aria-hidden="true"></span>'
+                        +           '<span class="toggle-label">Actif</span>'
+                        +       '</label>'
+                        +   '</div>'
+                        +   '<div style="padding:10px; border:1px solid #e5e7eb; border-radius:8px;">'
+                        +       '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;">'
+                        +           '<div>'
+                        +               '<div style="font-weight:500;">Renvoi d\'appel (CFU)</div>'
+                        +               '<div style="font-size:12px; color:#6b7280;">Transfère tous les appels vers un numéro.</div>'
+                        +           '</div>'
+                        +           '<label class="toggle-switch" aria-label="CFU" role="switch">'
+                        +               '<input id="toggleCf" type="checkbox" '+ (state.cfEnabled ? 'checked' : '') +' />'
+                        +               '<span class="slider" aria-hidden="true"></span>'
+                        +               '<span class="toggle-label">Actif</span>'
+                        +           '</label>'
+                        +       '</div>'
+                        +       '<div>'
+                        +           '<label for="cfNumber" style="display:block; font-size:13px; color:#374151; margin-bottom:6px;">Numéro de renvoi</label>'
+                        +           '<input id="cfNumber" type="text" value="'+ escHtml(state.cfNumber || '') +'"'
+                        +               ' style="display:block; width:100%; box-sizing:border-box; padding:10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;" />'
+                        +       '</div>'
+                        +   '</div>'
+                        +   '<div id="advancedMsg" style="margin-top:6px; font-size:12px; color:#6b7280;"></div>'
+                        + '</div>';
+
+                    contentEl.innerHTML = html;
+                    try{
+                        // Accessibilité: synchroniser aria-checked sur les switches
+                        var dndCb = document.getElementById('toggleDnd');
+                        var dndLabel = dndCb ? dndCb.closest('label.toggle-switch') : null;
+                        if(dndCb && dndLabel){ dndLabel.setAttribute('aria-checked', dndCb.checked ? 'true' : 'false'); dndCb.addEventListener('change', function(){ dndLabel.setAttribute('aria-checked', dndCb.checked ? 'true' : 'false'); }); }
+
+                        // Helper: appel API d'édition forward (GET)
+                        var msgEl = document.getElementById('advancedMsg');
+                        function setMsg(text, isError){ if(!msgEl) return; msgEl.textContent = text || ''; msgEl.style.color = isError ? '#b91c1c' : '#6b7280'; }
+                        var saving = false;
+                        var needResave = false;
+                        function saveForward(){
+                            if(saving){ needResave = true; return; }
+                            saving = true;
+                            setMsg('Enregistrement…', false);
+                            try{
+                                var base = localStorage.getItem('ForwardEditUrl') || (domain.replace(/\/$/, '') + '/sipapp-api/forward/forward_edit');
+                                var u = new URL(base, window.location.origin);
+                                var cfCb2 = document.getElementById('toggleCf');
+                                var cfInput2 = document.getElementById('cfNumber');
+                                var dndCb2 = document.getElementById('toggleDnd');
+                                var cfOn = !!(cfCb2 && cfCb2.checked);
+                                var cfVal = (cfInput2 && typeof cfInput2.value === 'string') ? cfInput2.value.trim() : '';
+                                // Si le toggle CF est OFF, envoyer cf_number vide pour désactiver
+                                var cfToSend = cfOn ? cfVal : '';
+                                var dndToSend = (dndCb2 && dndCb2.checked) ? 'yes' : 'no';
+                                if(apiExt) u.searchParams.set('extension', apiExt);
+                                u.searchParams.set('dnd', dndToSend);
+                                u.searchParams.set('cf_number', cfToSend);
+                                if(apiKey) u.searchParams.set('api_key', apiKey);
+                                try{ var pfx = localStorage.getItem('prefixe') || ''; if(pfx) u.searchParams.set('prefixe', pfx); }catch(e){}
+                                // Désactive les switches pendant l'appel
+                                try{ if(dndCb) dndCb.disabled = true; }catch(e){}
+                                var cfCbLocal = document.getElementById('toggleCf');
+                                try{ if(cfCbLocal) cfCbLocal.disabled = true; }catch(e){}
+                                fetch(u.toString(), { method:'GET' })
+                                    .then(function(res){ if(!res.ok) throw new Error('HTTP ' + res.status); return res.json().catch(function(){ return {}; }); })
+                                    .then(function(){ setMsg('Enregistré.', false); })
+                                    .catch(function(err){ setMsg('Erreur: ' + (err && err.message ? err.message : String(err)), true); })
+                                    .finally(function(){
+                                        saving = false;
+                                        try{ if(dndCb) dndCb.disabled = false; }catch(e){}
+                                        try{ if(cfCbLocal) cfCbLocal.disabled = false; }catch(e){}
+                                        if(needResave){ needResave = false; saveForward(); }
+                                    });
+                            }catch(e){ saving = false; setMsg('Erreur: ' + (e && e.message ? e.message : String(e)), true); }
+                        }
+
+                        // Gérer CF: conserver la valeur du champ lors de l'extinction du toggle et permettre l'édition
+                        var cfCb = document.getElementById('toggleCf');
+                        var cfLabel = cfCb ? cfCb.closest('label.toggle-switch') : null;
+                        var cfInput = document.getElementById('cfNumber');
+                        if(cfCb && cfInput){
+                            // L'input reste toujours éditable, on ne vide plus la valeur quand le toggle passe à OFF
+                            cfInput.style.opacity = '1';
+                            var syncAria = function(){ if(cfLabel){ cfLabel.setAttribute('aria-checked', cfCb.checked ? 'true' : 'false'); } };
+                            syncAria();
+                            cfCb.addEventListener('change', function(){
+                                // Ne pas modifier la valeur du champ; enregistrer la nouvelle config
+                                syncAria();
+                                saveForward();
+                                sizePanelToContent();
+                            });
+                            // Sauvegarder aussi quand le numéro change (debounce)
+                            var debounce = function(fn, ms){ var t; return function(){ var ctx=this, args=arguments; clearTimeout(t); t=setTimeout(function(){ fn.apply(ctx,args); }, ms); }; };
+                            cfInput.addEventListener('input', debounce(function(){ saveForward(); }, 600));
+                            cfInput.addEventListener('change', function(){ saveForward(); });
+                        }
+
+                        // DND: enregistrer sur changement
+                        if(dndCb){ dndCb.addEventListener('change', function(){ saveForward(); }); }
+                    }catch(e){}
+                    sizePanelToContent();
+                })
+                .catch(function(err){
+                    contentEl.innerHTML = '<div style="padding:12px; color:#b91c1c;">Impossible de charger les fonctions avancées ('+ escHtml(err && err.message ? err.message : String(err)) +').</div>';
+                });
+        }
+
+        function attachContentResizeObserver(){
+            try{
+                if(contentResizeObserver){ contentResizeObserver.disconnect(); contentResizeObserver = null; }
+                if(!window.ResizeObserver) return;
+                contentResizeObserver = new ResizeObserver(function(){
+                    try{ sizePanelToContent(); }catch(e){}
+                });
+                contentResizeObserver.observe(contentEl);
+            }catch(e){ /* ignore */ }
+        }
+
+        function openPanel(title, html, type){
+            titleEl.textContent = title || "";
+            contentEl.innerHTML = html || "";
+            // Coller le panneau au bord gauche de #Phone
+            positionPanel();
+            if(!type){
+                var t = String(title || '').toLowerCase();
+                if(/favoris/.test(t)) type = 'favorites';
+                else if(/voicemail|mail/.test(t)) type = 'voicemail';
+                else if(/histori|cdr|appel/.test(t)) type = 'history';
+                else if(/contact/.test(t)) type = 'contacts';
+                else if(/fonction/.test(t)) type = 'functions';
+                else type = 'default';
+            }
+            panel.setAttribute('data-type', String(type));
+            sizePanelToContent();
+            panel.classList.add("sidepanel--open");
+            panel.setAttribute("aria-hidden", "false");
+            document.body.classList.add("sidepanel-open");
+            // Ajuster si la fenêtre est redimensionnée
+            resizeHandler = function(){ positionPanel(); sizePanelToContent(); };
+            window.addEventListener("resize", resizeHandler);
+            attachContentResizeObserver();
+        }
+        function closePanel(){
+            panel.classList.remove("sidepanel--open");
+            panel.setAttribute("aria-hidden", "true");
+            document.body.classList.remove("sidepanel-open");
+            if(resizeHandler){
+                window.removeEventListener("resize", resizeHandler);
+                resizeHandler = null;
+            }
+            if(contentResizeObserver){ try{ contentResizeObserver.disconnect(); }catch(e){} contentResizeObserver = null; }
+            // Nettoyer la position explicite (retour au CSS par défaut)
+            panel.style.left = "";
+            panel.style.width = "";
+            document.body.style.removeProperty('--sidepanel-w');
+        }
+
+        if(closeBtn) closeBtn.addEventListener("click", closePanel);
+
+        var btns = [
+            { id: "nav-clavier", title: "Clavier" },
+            { id: "nav-historique", title: "Historique" },
+            { id: "nav-voicemail", title: "Visual Voicemail" },
+            { id: "nav-contacts", title: "Contacts" },
+            { id: "nav-favoris", title: "Favoris" },
+            { id: "nav-fonction-avance", title: "Fonctions avancées" }
+        ];
+        btns.forEach(function(b){
+            var el = $(b.id);
+            if(!el) return;
+            el.addEventListener("click", function(){
+                if(b.id === 'nav-clavier'){
+                    // Ouvrir directement le pavé de numérotation de l'application
+                    // Ferme le panneau latéral si ouvert, puis appelle ShowDial()
+                    try { closePanel(); } catch(e) {}
+                    if (typeof window.ShowDial === 'function') {
+                        window.ShowDial();
+                    } else {
+                        // Repli: si ShowDial n'est pas chargé, garder le comportement précédent
+                        openPanel(b.title, "<div style='padding:12px'>"+ b.title +"</div>", 'default');
+                    }
+                } else if(b.id === 'nav-historique'){
+                    loadHistory();
+                } else if(b.id === 'nav-voicemail'){
+                    loadVoicemail();
+                } else if(b.id === 'nav-fonction-avance'){
+                    loadAdvancedFunctions();
+                } else {
+                    if(b.id === 'nav-contacts'){
+                        // Affiche une zone dédiée pour la recherche/contact: divFindBuddy avec un champ txtFindBuddy
+                        openPanel(
+                            b.title,
+                            "<div id='divFindBuddyContacts' style='padding:12px; overflow-x:hidden;'>"
+                            + "<label for='txtFindBuddyContacts' style='display:block; font-size:13px; color:#374151; margin-bottom:6px;'>Rechercher un contact</label>"
+                            + "<input id='txtFindBuddyContacts' type='text' placeholder='Nom (ex: jpr), numéro…' autocomplete='off'"
+                            + " style='display:block; width:100%; max-width:100%; box-sizing:border-box; padding:10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;' />"
+                            + "<div id='ldapResultsContacts' style='margin-top:10px; min-height:24px;'></div>"
+                            + "</div>",
+                            'contacts'
+                        );
+
+                        // Câblage: recherche LDAP au fil de la saisie
+                        (function(){
+                            function debounce(fn, ms){
+                                var t; return function(){ var ctx=this, args=arguments; clearTimeout(t); t=setTimeout(function(){ fn.apply(ctx,args); }, ms); };
+                            }
+                            function renderLdapItems(items){
+                                if(!Array.isArray(items) || items.length === 0){
+                                    return "<div>Aucun résultat.</div>";
+                                }
+                                var h = "<ul style='list-style:none; margin:0; padding:0;'>";
+                                for(var i=0;i<items.length;i++){
+                                    var it = items[i] || {};
+                                    // Priorité du libellé: name > displayName > cn > givenName+sn > dn > Contact
+                                    var plainName = (it.name
+                                                     || it.displayName
+                                                     || it.cn
+                                                     || ((it.givenName||'') + ' ' + (it.sn||''))
+                                                     || it.dn
+                                                     || 'Contact');
+                                    var name = escHtml(String(plainName).trim());
+                                    // Récupérer plusieurs numéros: telephoneNumber et mobile (et homePhone si présent)
+                                    function toList(v){
+                                        if(v == null) return [];
+                                        if(Array.isArray(v)) return v.map(function(x){ return String(x); });
+                                        return [ String(v) ];
+                                    }
+                                    var nums = [];
+                                    var telList = toList(it.telephoneNumber);
+                                    var mobList = toList(it.mobile);
+                                    var homeList = toList(it.homePhone);
+                                    telList.forEach(function(n){ if(n && nums.indexOf(n) === -1) nums.push(n); });
+                                    mobList.forEach(function(n){ if(n && nums.indexOf(n) === -1) nums.push(n); });
+                                    homeList.forEach(function(n){ if(n && nums.indexOf(n) === -1) nums.push(n); });
+
+                                    var mail = escHtml(it.mail || '');
+                                    h += "<li style='border-bottom:1px solid rgba(0,0,0,0.06); padding:10px 0;'>"
+                                        + "<div style='font-weight:500;'>"+ name +"</div>"
+                                        + (nums.length ? nums.map(function(n){
+                                              var label = '';
+                                              if(mobList.indexOf(n) !== -1) label = " <span style=\"margin-left:6px; font-size:11px; color:#065f46; background:#dcfce7; border:1px solid #10b981; border-radius:10px; padding:1px 6px;\">Mobile</span>";
+                                              else if(telList.indexOf(n) !== -1) label = " <span style=\"margin-left:6px; font-size:11px; color:#1f2937; background:#e5e7eb; border:1px solid #d1d5db; border-radius:10px; padding:1px 6px;\">Téléphone</span>";
+                                              else if(homeList.indexOf(n) !== -1) label = " <span style=\"margin-left:6px; font-size:11px; color:#6b7280; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:10px; padding:1px 6px;\">Domicile</span>";
+                                              var callBtn = "<button type=\"button\" class=\"ldap-call\" data-number=\""+ escHtml(n) +"\" style=\"appearance:none; border:0; background:transparent; color:#2563eb; cursor:pointer; padding:0;\">"+ escHtml(n) +"</button>";
+                                              return "<div style='margin-top:2px; color:#374151; font-size:13px;'><i class='fa fa-phone'></i> " + callBtn + label + "</div>";
+                                            }).join('') : "")
+                                        + (mail ? "<div style='margin-top:2px; color:#374151; font-size:13px;'><i class='fa fa-envelope'></i> "+ mail +"</div>" : "")
+                                        + "</li>";
+                                }
+                                h += "</ul>";
+                                return h;
+                            }
+                            // Fonction réutilisable pour effectuer la recherche LDAP par sn (nom de famille)
+                            // Forcée en HTTP (pas d'IPC) pour un comportement identique à Favoris
+                            window.searchLdapBySn = function(q){
+                                q = (q||'').trim();
+                                try{
+                                    var base = localStorage.getItem('LdapSearchUrl');
+                                    if(!base){
+                                        // Construire depuis SipDomain si possible, sinon utiliser l'URL par défaut
+                                        var domain = getCfg(["SipDomain","SipDomaine"]);
+                                        if(!/^https?:\/\//i.test(domain)) domain = 'https://' + domain;
+                                        domain = domain.replace(/\/$/, '');
+                                        base = domain + '/sipapp-api/ldap/contacts';
+                                    }
+                                    var u = new URL(base, window.location.origin);
+                                    // Paramètre de recherche (sn)
+                                    u.searchParams.set('sn', q);
+                                    // Ajouter la clé API si disponible
+                                    var apiKey = getCfg(["api_key","ApiKey","API_KEY"]);
+                                    if(apiKey) u.searchParams.set('api_key', apiKey);
+                                    try{ var pfx = localStorage.getItem('prefixe') || ''; if(pfx) u.searchParams.set('prefixe', pfx); }catch(e){}
+                                    try{ var pfx = localStorage.getItem('prefixe') || ''; if(pfx) u.searchParams.set('prefixe', pfx); }catch(e){}
+                                    var headers = {};
+                                    var bearer = localStorage.getItem('LdapBearer');
+                                    var basicUser = localStorage.getItem('LdapUser');
+                                    var basicPass = localStorage.getItem('LdapPass');
+                                    if(bearer){ headers['Authorization'] = 'Bearer ' + bearer; }
+                                    else if(basicUser || basicPass){ headers['Authorization'] = 'Basic ' + btoa(String(basicUser||'') + ':' + String(basicPass||'')); }
+                                    return fetch(u.toString(), { headers: headers })
+                                        .then(function(res){ if(!res.ok) throw new Error('HTTP '+res.status); return res.json(); })
+                                        .then(function(js){
+                                            // Tenter d'extraire un tableau générique via l'utilitaire toArrayFromResponse
+                                            var items = toArrayFromResponse(js) || [];
+                                            return { ok:true, items: items };
+                                        })
+                                        .catch(function(err){ return { ok:false, error: err && err.message ? err.message : String(err) }; });
+                                }catch(e){
+                                    return Promise.resolve({ ok:false, error: e && e.message ? e.message : String(e) });
+                                }
+                            };
+
+                            var input = $('txtFindBuddyContacts');
+                            var results = $('ldapResultsContacts');
+                            if(!input || !results) return;
+                            var doSearch = debounce(function(){
+                                var q = input.value || '';
+                                if(q.trim().length < 2){ results.innerHTML = "<div>Saisissez au moins 2 caractères…</div>"; sizePanelToContent(); return; }
+                                results.innerHTML = "<div><span class='fa fa-circle-o-notch fa-spin'></span> Recherche…</div>";
+                                window.searchLdapBySn(q).then(function(resp){
+                                    if(!resp || resp.ok !== true){
+                                        var msg = (resp && resp.error) ? resp.error : 'Erreur inconnue';
+                                        results.innerHTML = "<div style='color:#b91c1c;'>"+ escHtml(msg) +"</div>";
+                                    } else {
+                                        results.innerHTML = renderLdapItems(resp.items || []);
+                                        bindLdapDialClicks();
+                                    }
+                                    sizePanelToContent();
+                                }).catch(function(err){
+                                    results.innerHTML = "<div style='color:#b91c1c;'>"+ escHtml(err && err.message ? err.message : String(err)) +"</div>";
+                                    sizePanelToContent();
+                                });
+                            }, 350);
+                            input.addEventListener('input', doSearch);
+                            input.focus();
+                        })();
+                    } else if (b.id === 'nav-favoris'){
+                        // Panneau Favoris avec bouton ADD et recherche via API contacts, création d'un buddy avec abonnement
+                        openPanel(
+                            b.title,
+                            "<div id='favoritesPanel' style='padding:12px; overflow-x:hidden;'>"
+                            +   "<div style='display:flex; align-items:center; gap:10px; margin-bottom:10px;'>"
+                            +       "<div id='favHelp' style='color:#6b7280; font-size:13px;'>Cliquez sur ADD pour ajouter un favori depuis l'annuaire.</div>"
+                            +       "<button id='favAddBtn' type='button' class='UiButton' title='Ajouter un favori'"
+                            +           " style='padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; background:#f9fafb; cursor:pointer;'>"
+                            +           "<i class='fa fa-plus'></i> ADD"
+                            +       "</button>"
+                            +   "</div>"
+                            +   "<div id='favList' style='margin-bottom:12px;'></div>"
+                            +   "<div id='favSearchZone' style='display:none;'>"
+                            +       "<label for='txtFindFavorite' style='display:block; font-size:13px; color:#374151; margin-bottom:6px;'>Rechercher dans l'annuaire</label>"
+                            +       "<input id='txtFindFavorite' type='text' placeholder='Nom ou extension…' autocomplete='off'"
+                            +           " style='display:block; width:100%; max-width:100%; box-sizing:border-box; padding:10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;' />"
+                            +       "<div id='favResults' style='margin-top:10px; min-height:24px;'></div>"
+                            +   "</div>"
+                            + "</div>"
+                        );
+
+                        (function(){
+                            function debounce(fn, ms){ var t; return function(){ var ctx=this, args=arguments; clearTimeout(t); t=setTimeout(function(){ fn.apply(ctx,args); }, ms); }; }
+                            function esc(s){ return escHtml(s); }
+
+                            // Vérifie si une extension est déjà épinglée en favori (Pinned=true)
+                            function isExtAlreadyPinned(ext){
+                                if(!ext) return false;
+                                var pid = getCfg(['profileUserID']) || localStorage.getItem('profileUserID');
+                                if(!pid) return false;
+                                try{
+                                    var raw = localDB.getItem(pid + '-Buddies');
+                                    var js = raw ? JSON.parse(raw) : null;
+                                    var rows = (js && Array.isArray(js.DataCollection)) ? js.DataCollection : [];
+                                    var extStr = String(ext).trim();
+                                    return rows.some(function(x){
+                                        if(!x || x.Pinned !== true) return false;
+                                        var e = String(x.ExtensionNumber || x.ExtNo || '').trim();
+                                        return e !== '' && e === extStr;
+                                    });
+                                }catch(e){ return false; }
+                            }
+
+                            // Retourne la ligne Buddy (DataCollection) correspondant à l'extension si elle existe (pinned ou non)
+                            function findBuddyRowByExt(ext){
+                                if(!ext) return null;
+                                var pid = getCfg(['profileUserID']) || localStorage.getItem('profileUserID');
+                                if(!pid) return null;
+                                try{
+                                    var raw = localDB.getItem(pid + '-Buddies');
+                                    var js = raw ? JSON.parse(raw) : null;
+                                    var rows = (js && Array.isArray(js.DataCollection)) ? js.DataCollection : [];
+                                    var extStr = String(ext).trim();
+                                    for(var i=0;i<rows.length;i++){
+                                        var x = rows[i];
+                                        if(!x) continue;
+                                        var e = String(x.ExtensionNumber || x.ExtNo || '').trim();
+                                        if(e !== '' && e === extStr) return x;
+                                    }
+                                    return null;
+                                }catch(e){ return null; }
+                            }
+
+                            // Recherche via API Contact configurable
+                            // Utilise localStorage.ContactSearchUrl si défini, sinon tente /sipapp-api/contacts/search puis fallback LDAP /sipapp-api/ldap/contacts
+                            window.searchContactsApi = function(q){
+                                q = (q||'').trim();
+                                try{
+                                    var domain = getCfg(["SipDomain","SipDomaine"]);
+                                    if(!/^https?:\/\//i.test(domain)) domain = 'https://' + domain;
+                                    domain = domain.replace(/\/$/, '');
+                                    var base = localStorage.getItem('ContactSearchUrl') || (domain + '/sipapp-api/contacts/search');
+                                    var u = new URL(base, window.location.origin);
+                                    // Essayer paramètres courants
+                                    // q générique
+                                    u.searchParams.set('q', q);
+                                    // sn pour compat LDAP si l’URL cible l’API LDAP
+                                    u.searchParams.set('sn', q);
+                                    var apiKey = getCfg(["api_key","ApiKey","API_KEY"]);
+                                    if(apiKey) u.searchParams.set('api_key', apiKey);
+                                    var headers = {};
+                                    var bearer = localStorage.getItem('ContactBearer') || localStorage.getItem('LdapBearer');
+                                    var basicUser = localStorage.getItem('ContactUser') || localStorage.getItem('LdapUser');
+                                    var basicPass = localStorage.getItem('ContactPass') || localStorage.getItem('LdapPass');
+                                    if(bearer){ headers['Authorization'] = 'Bearer ' + bearer; }
+                                    else if(basicUser || basicPass){ headers['Authorization'] = 'Basic ' + btoa(String(basicUser||'') + ':' + String(basicPass||'')); }
+
+                                    return fetch(u.toString(), { headers: headers })
+                                        .then(function(res){
+                                            if(!res.ok){
+                                                // Fallback automatique sur LDAP contacts si 404/500
+                                                var fb = domain + '/sipapp-api/ldap/contacts';
+                                                var uf = new URL(fb, window.location.origin);
+                                                uf.searchParams.set('sn', q);
+                                                if(apiKey) uf.searchParams.set('api_key', apiKey);
+                                                try{ var pfx2 = localStorage.getItem('prefixe') || ''; if(pfx2) uf.searchParams.set('prefixe', pfx2); }catch(e){}
+                                                return fetch(uf.toString(), { headers: headers });
+                                            }
+                                            return res;
+                                        })
+                                        .then(function(res){ return res.json(); })
+                                        .then(function(js){
+                                            var items = toArrayFromResponse(js) || [];
+                                            return { ok:true, items: items };
+                                        })
+                                        .catch(function(err){ return { ok:false, error: err && err.message ? err.message : String(err) }; });
+                                }catch(e){
+                                    return Promise.resolve({ ok:false, error: e && e.message ? e.message : String(e) });
+                                }
+                            };
+
+                            function bestName(it){
+                                var plain = it.name || it.displayName || it.cn || ((it.givenName||'') + ' ' + (it.sn||'')) || it.dn || it.uid || '';
+                                return String(plain || '').trim();
+                            }
+                            function pickExt(it){
+                                var cand = [ it.extension, it.ext, it.internalNumber, it.telephoneNumber, it.uid, it.sip || it.sipId ];
+                                for(var i=0;i<cand.length;i++){
+                                    var v = cand[i];
+                                    if(v == null) continue;
+                                    var s = String(v).trim();
+                                    if(/^\d{2,8}$/.test(s)) return s; // extension plausible
+                                }
+                                return null;
+                            }
+                            function toList(v){ if(v == null) return []; return Array.isArray(v) ? v : [v]; }
+                            function renderFavResults(items){
+                                if(!Array.isArray(items) || items.length===0) return "<div>Aucun résultat.</div>";
+                                var h = "<ul style='list-style:none; margin:0; padding:0;'>";
+                                for(var i=0;i<items.length;i++){
+                                    var it = items[i] || {};
+                                    var name = esc(bestName(it) || '');
+                                    var ext = pickExt(it);
+                                    var mobiles = toList(it.mobile).map(String);
+                                    var email = escHtml(it.mail || it.email || '');
+                                    var extLbl = ext ? ("<span style=\"margin-left:6px; font-size:11px; color:#1f2937; background:#e5e7eb; border:1px solid #d1d5db; border-radius:10px; padding:1px 6px;\">Ext " + esc(ext) + "</span>") : "";
+                                    var addBtn = ext ? ("<button type=\"button\" class=\"fav-add\" data-ext=\""+ esc(ext) +"\" data-name=\""+ name +"\" data-mobile=\""+ escHtml(mobiles[0]||'') +"\" data-email=\""+ email +"\" style=\"margin-top:4px; padding:4px 8px; border:1px solid #10b981; background:#ecfdf5; color:#065f46; border-radius:6px; cursor:pointer;\"><i class='fa fa-plus'></i> Ajouter</button>") : ("<span style='color:#6b7280; font-size:12px; display:inline-block; margin-top:4px;'>Aucune extension</span>");
+                                    h += "<li style='border-bottom:1px solid rgba(0,0,0,0.06); padding:10px 0;'>"
+                                        +   "<div style='font-weight:500;'>"+ name +" "+ extLbl +"</div>"
+                                        +   (mobiles.length? ("<div style='margin-top:2px; color:#374151; font-size:13px;'><i class='fa fa-phone'></i> "+ escHtml(mobiles[0]) +"</div>") : "")
+                                        +   (email? ("<div style='margin-top:2px; color:#374151; font-size:13px;'><i class='fa fa-envelope'></i> "+ email +"</div>") : "")
+                                        +   addBtn
+                                        + "</li>";
+                                }
+                                h += "</ul>";
+                                return h;
+                            }
+
+                            function renderFavList(items){
+                                if(!Array.isArray(items) || items.length === 0){
+                                    return "<div style='color:#6b7280; font-size:13px;'>Aucun favori pour le moment.</div>";
+                                }
+                                var h = "<ul style='list-style:none; margin:0; padding:0;'>";
+                                for(var i=0;i<items.length;i++){
+                                    var it = items[i];
+                                    var name = escHtml((it.DisplayName || it.CallerIDName || ''));
+                                    var ext = escHtml(it.ExtensionNumber || it.ExtNo || '');
+                                    var identity = escHtml(String(it.uID || it.cID || it.gID || ''));
+                                    var badge = ext ? ("<span style=\"margin-left:6px; font-size:11px; color:#1f2937; background:#e5e7eb; border:1px solid #d1d5db; border-radius:10px; padding:1px 6px;\">Ext "+ ext +"</span>") : "";
+                                    var dialBtn = ext ? ("<button type=\"button\" class=\"fav-dial\" data-number=\""+ ext +"\" title=\"Appeler\" style=\"margin-left:8px; padding:2px 6px; border:1px solid #d1d5db; background:#fff; border-radius:6px; cursor:pointer;\"><i class='fa fa-phone'></i></button>") : "";
+                                    var remBtn = identity ? ("<button type=\"button\" class=\"fav-remove\" data-id=\""+ identity +"\" title=\"Retirer des favoris\" style=\"margin-left:6px; padding:2px 6px; border:1px solid #ef4444; background:#fef2f2; color:#991b1b; border-radius:6px; cursor:pointer;\"><i class='fa fa-times'></i></button>") : "";
+                                    var presDot = identity ? ("<span id='fav-pres-"+ identity +"' title='' aria-label=''"
+                                                     + " style=\"display:inline-block;width:8px;height:8px;border-radius:50%;background:#16a34a;margin-right:6px;vertical-align:middle;\"></span>") : "";
+                                    var presText = identity ? ("<span id='fav-pres-text-"+ identity +"' style=\"margin-left:8px; font-size:12px; color:#6b7280;\"></span>") : "";
+                                    h += "<li data-fav-id='"+ identity +"' style='border-bottom:1px solid rgba(0,0,0,0.06); padding:8px 0; display:flex; align-items:center; justify-content:space-between;'>"
+                                        +   "<div>"+ presDot +"<strong>"+ name +"</strong> "+ badge + presText +"</div>"
+                                        +   "<div>"+ dialBtn + remBtn +"</div>"
+                                        + "</li>";
+                                }
+                                h += "</ul>";
+                                return h;
+                            }
+
+                            function devStateToColor(devState){
+                                switch(String(devState||'').trim()){
+                                    case 'dotOnline': return '#16a34a'; // Ready/en ligne: green
+                                    case 'dotReady': return '#16a34a';  // Ready explicit: green
+                                    case 'dotRinging': return '#f59e0b'; // ringing: orange
+                                    case 'dotInUse': return '#d97706'; // in-call: dark orange
+                                    case 'dotOnHold': return '#7c3aed'; // on hold: purple
+                                    case 'dotOffline': return '#9ca3af'; // offline: gray
+                                    default: return '#16a34a'; // default: green
+                                }
+                            }
+                            function updateFavPresenceByBuddy(buddyObj){
+                                if(!buddyObj || !buddyObj.identity) return;
+                                var el = document.getElementById('fav-pres-' + buddyObj.identity);
+                                if(!el) return;
+                                var color = devStateToColor(buddyObj.devState);
+                                el.style.background = color;
+                                var pres = buddyObj.presence || '';
+                                if(pres){
+                                    // map to localized labels if available in lang
+                                    var p = pres;
+                                    try{
+                                        if (pres === 'Not online' && window.lang) p = lang.state_not_online;
+                                        else if (pres === 'Ready' && window.lang) p = lang.state_ready;
+                                        else if (pres === 'On the phone' && window.lang) p = lang.state_on_the_phone;
+                                        else if (pres === 'Ringing' && window.lang) p = lang.state_ringing;
+                                        else if (pres === 'On hold' && window.lang) p = lang.state_on_hold;
+                                        else if (pres === 'Unavailable' && window.lang) p = lang.state_unavailable;
+                                    }catch(e){}
+                                    // Requested override: replace 'On the phone' label with 'en ligne' (case-insensitive)
+                                    try{
+                                        if(String(p).toLowerCase() === 'on the phone') p = 'en ligne';
+                                    }catch(e){}
+                                    // Requested override: replace 'Ready' label with 'Pret' (case-insensitive)
+                                    try{
+                                        if(String(p).toLowerCase() === 'ready') p = 'Pret';
+                                    }catch(e){}
+                                    el.setAttribute('title', p);
+                                    el.setAttribute('aria-label', p);
+                                    // set visible text status too
+                                    var txtEl = document.getElementById('fav-pres-text-' + buddyObj.identity);
+                                    if(txtEl) txtEl.textContent = p;
+                                }
+                            }
+                            function initFavPresence(items){
+                                if(!Array.isArray(items)) return;
+                                items.forEach(function(it){
+                                    var identity = (it && (it.uID || it.cID || it.gID)) ? String(it.uID || it.cID || it.gID) : null;
+                                    if(!identity) return;
+                                    try{
+                                        if(typeof FindBuddyByIdentity === 'function'){
+                                            var b = FindBuddyByIdentity(identity);
+                                            if(b) updateFavPresenceByBuddy(b);
+                                        }
+                                    }catch(e){ /* ignore */ }
+                                });
+                            }
+
+                            function loadFavorites(){
+                                var pid = getCfg(['profileUserID']) || localStorage.getItem('profileUserID');
+                                var favListEl = document.getElementById('favList');
+                                if(!pid || !favListEl){ return; }
+                                try{
+                                    var raw = localDB.getItem(pid + '-Buddies');
+                                    var js = raw ? JSON.parse(raw) : null;
+                                    var rows = (js && Array.isArray(js.DataCollection)) ? js.DataCollection : [];
+                                    var pins = rows.filter(function(x){ return x && x.Pinned === true; });
+                                    favListEl.innerHTML = renderFavList(pins);
+                                    // Bind dial buttons
+                                    var dialBtns = favListEl.querySelectorAll('.fav-dial');
+                                    dialBtns.forEach(function(btn){
+                                        btn.addEventListener('click', function(){
+                                            var num = btn.getAttribute('data-number') || '';
+                                            if(num && window.DialByLine){ try{ window.DialByLine('audio', null, num); } catch(e){} }
+                                        });
+                                    });
+                                    // Bind remove buttons
+                                    var remBtns = favListEl.querySelectorAll('.fav-remove');
+                                    remBtns.forEach(function(btn){
+                                        btn.addEventListener('click', function(){
+                                            var id = btn.getAttribute('data-id') || '';
+                                            if(id && typeof TogglePinned === 'function'){
+                                                try{ TogglePinned(id); } catch(e){ console.error(e); }
+                                                try{ UpdateBuddyList(); } catch(e){ console.error(e); }
+                                                loadFavorites();
+                                            }
+                                        });
+                                    });
+                                    // Init presence indicators from current buddy states
+                                    initFavPresence(pins);
+                                    sizePanelToContent();
+                                }catch(e){
+                                    console.error('loadFavorites error', e);
+                                }
+                            }
+
+                            function bindAddButtons(){
+                                if(!contentEl) return;
+                                var btns = contentEl.querySelectorAll('.fav-add');
+                                btns.forEach(function(btn){
+                                    btn.addEventListener('click', function(){
+                                        var name = btn.getAttribute('data-name') || '';
+                                        var ext  = btn.getAttribute('data-ext')  || '';
+                                        var mobile = btn.getAttribute('data-mobile') || '';
+                                        var email = btn.getAttribute('data-email') || '';
+                                        if(!/^\d{2,8}$/.test(ext)){
+                                            alert("Ce contact n'a pas d'extension interne valide.");
+                                            return;
+                                        }
+                                        // Empêcher les doublons: si déjà en favoris, avertir et ne rien faire
+                                        if(isExtAlreadyPinned(ext)){
+                                            alert('Ce favori existe déjà.');
+                                            return;
+                                        }
+                                        // Si le buddy existe déjà (non épinglé), ne pas le recréer: simplement l'épingler et s'assurer de l'abonnement
+                                        var existingRow = findBuddyRowByExt(ext);
+                                        if(existingRow){
+                                            try{
+                                                var identity = String(existingRow.uID || existingRow.cID || existingRow.gID || '');
+                                                if(identity){
+                                                    if(existingRow.Pinned !== true && typeof TogglePinned === 'function'){
+                                                        try{ TogglePinned(identity); }catch(e){}
+                                                    }
+                                                    try{ UpdateBuddyList(); }catch(e){}
+                                                    loadFavorites();
+                                                    try{
+                                                        var b = (typeof FindBuddyByIdentity === 'function') ? FindBuddyByIdentity(identity) : null;
+                                                        if(b){
+                                                            if(typeof SubscribeBuddy === 'function'){
+                                                                try{ SubscribeBuddy(b); }catch(e){}
+                                                            }
+                                                            try{ updateFavPresenceByBuddy(b); }catch(e){}
+                                                        }
+                                                    }catch(e){}
+                                                }
+                                            }catch(e){}
+                                            // Afficher le dialpad et fermer le champ de recherche
+                                            try{
+                                                setTimeout(function(){
+                                                    var myContacts = document.getElementById('myContacts');
+                                                    var actionArea = document.getElementById('actionArea');
+                                                    var favSearchZone = document.getElementById('favSearchZone');
+                                                    var favHelp = document.getElementById('favHelp');
+                                                    if(myContacts) myContacts.style.display = 'none';
+                                                    if(actionArea) actionArea.style.display = '';
+                                                    if(favSearchZone) favSearchZone.style.display = 'none';
+                                                    if(favHelp) favHelp.style.display = '';
+                                                }, 0);
+                                            }catch(e){}
+                                            return;
+                                        }
+                                        try{
+                                            // Crée un buddy type extension avec abonnement activé
+                                            var buddy = MakeBuddy('extension', true, false, true, name, ext, null, false, ext, false, false);
+                                            // Épingler en favori (persistant)
+                                            if(buddy && buddy.identity && typeof TogglePinned === 'function'){
+                                                TogglePinned(buddy.identity);
+                                            }
+                                            // Mise à jour côté UI
+                                            UpdateBuddyList();
+                                            loadFavorites();
+                                            // Mettre à jour aussitôt l'indicateur de présence si disponible
+                                            try{ updateFavPresenceByBuddy(buddy); }catch(e){}
+                                            // Afficher le dialpad et fermer le champ de recherche
+                                            try{
+                                                setTimeout(function(){
+                                                    var myContacts = document.getElementById('myContacts');
+                                                    var actionArea = document.getElementById('actionArea');
+                                                    var favSearchZone = document.getElementById('favSearchZone');
+                                                    var favHelp = document.getElementById('favHelp');
+                                                    if(myContacts) myContacts.style.display = 'none';
+                                                    if(actionArea) actionArea.style.display = '';
+                                                    if(favSearchZone) favSearchZone.style.display = 'none';
+                                                    if(favHelp) favHelp.style.display = '';
+                                                }, 0);
+                                            }catch(e){}
+                                        }catch(e){
+                                            console.error('Erreur création buddy', e);
+                                            alert('Impossible de créer le favori: ' + (e && e.message ? e.message : e));
+                                        }
+                                    });
+                                });
+                            }
+
+                            var favAddBtn = document.getElementById('favAddBtn');
+                            var favZone   = document.getElementById('favSearchZone');
+                            var favInput  = document.getElementById('txtFindFavorite');
+                            var favRes    = document.getElementById('favResults');
+                            if(!favAddBtn || !favZone) return;
+                            favAddBtn.addEventListener('click', function(){
+                                favZone.style.display = 'block';
+                                var help = document.getElementById('favHelp');
+                                if(help) help.style.display = 'none';
+                                if(favInput) favInput.focus();
+                                sizePanelToContent();
+                            });
+
+                            var doSearchFav = debounce(function(){
+                                if(!favInput || !favRes) return;
+                                var q = favInput.value || '';
+                                if(q.trim().length < 2){ favRes.innerHTML = "<div>Saisissez au moins 2 caractères…</div>"; sizePanelToContent(); return; }
+                                favRes.innerHTML = "<div><span class='fa fa-circle-o-notch fa-spin'></span> Recherche…</div>";
+                                window.searchContactsApi(q).then(function(resp){
+                                    if(!resp || resp.ok !== true){
+                                        favRes.innerHTML = "<div style='color:#b91c1c;'>"+ esc(resp && resp.error ? resp.error : 'Erreur recherche') +"</div>";
+                                    } else {
+                                        favRes.innerHTML = renderFavResults(resp.items || []);
+                                        bindAddButtons();
+                                    }
+                                    sizePanelToContent();
+                                }).catch(function(err){
+                                    favRes.innerHTML = "<div style='color:#b91c1c;'>"+ esc(err && err.message ? err.message : String(err)) +"</div>";
+                                    sizePanelToContent();
+                                });
+                            }, 350);
+                            if(favInput) favInput.addEventListener('input', doSearchFav);
+                            // Charger la liste des favoris existants dès l'ouverture
+                            loadFavorites();
+                            // Écouter les NOTIFY pour rafraîchir les présences des favoris
+                            try{
+                                window.web_hook_on_notify = function(ContentType, buddyObj, notify){
+                                    try{ updateFavPresenceByBuddy(buddyObj); }catch(e){}
+                                }
+                            }catch(e){}
+                        })();
+                    } else {
+                        openPanel(b.title, "<div style='padding:12px'>"+ b.title +"</div>");
+                    }
+                }
+            });
+        });
+    })();
+    </script>
+
+    <!-- Deferred Scripts -->
+    <script type="text/javascript" src="https://dtd6jl0d42sve.cloudfront.net/lib/jquery/jquery.md5-min.js" defer="true"></script>
+    <script type="text/javascript" src="https://dtd6jl0d42sve.cloudfront.net/lib/Chart/Chart.bundle-2.7.2.min.js" defer="true"></script>
+    <script type="text/javascript" src="https://dtd6jl0d42sve.cloudfront.net/lib/SipJS/sip-0.20.0.min.js" defer="true"></script>
+    <script type="text/javascript" src="https://dtd6jl0d42sve.cloudfront.net/lib/FabricJS/fabric-2.4.6.min.js" defer="true"></script>
+    <script type="text/javascript" src="https://dtd6jl0d42sve.cloudfront.net/lib/Moment/moment-with-locales-2.24.0.min.js" defer="true"></script>
+    <script type="text/javascript" src="https://dtd6jl0d42sve.cloudfront.net/lib/Croppie/Croppie-2.6.4/croppie.min.js" defer="true"></script>
+    <script type="text/javascript" src="https://dtd6jl0d42sve.cloudfront.net/lib/XMPP/strophe-1.4.1.umd.min.js" defer="true"></script>
+
+</html>
