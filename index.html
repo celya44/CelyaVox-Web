@@ -3,8 +3,8 @@
     <head>
         <meta charset="utf-8">
 
-    <title>SipApp</title>
-    <meta name="description" content="SipApp is a fully featured browser based WebRTC SIP phone for Asterisk. Designed to work with Asterisk PBX. It will connect to Asterisk PBX via web socket, and register an extension.  Calls are made between contacts, and a full call detail is saved. Audio and Video Calls can be recorded locally.">
+    <title>CelyaVox</title>
+    <meta name="description" content="CelyaVox is a fully featured browser based WebRTC SIP phone for Asterisk. Designed to work with Asterisk PBX. It will connect to Asterisk PBX via web socket, and register an extension.  Calls are made between contacts, and a full call detail is saved. Audio and Video Calls can be recorded locally.">
 
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"/>
 
@@ -909,10 +909,10 @@
             if(!/^https?:\/\//i.test(domain)) domain = 'https://' + domain;
             domain = domain.replace(/\/$/, "");
 
-            var base = localStorage.getItem('VoicemailListUrl') || (domain + '/sipapp-api/voicemail/get_messages');
-            var audioBase = localStorage.getItem('VoicemailGetUrl') || (domain + '/sipapp-api/voicemail/get_message');
-            var deleteBase = localStorage.getItem('VoicemailDeleteUrl') || (domain + '/sipapp-api/voicemail/delete_voicemail');
-            var moveBase = localStorage.getItem('VoicemailMoveUrl') || (domain + '/sipapp-api/voicemail/move_message');
+            var base = localStorage.getItem('VoicemailListUrl') || (domain + '/celyavox-api/voicemail/get_messages');
+            var audioBase = localStorage.getItem('VoicemailGetUrl') || (domain + '/celyavox-api/voicemail/get_message');
+            var deleteBase = localStorage.getItem('VoicemailDeleteUrl') || (domain + '/celyavox-api/voicemail/delete_voicemail');
+            var moveBase = localStorage.getItem('VoicemailMoveUrl') || (domain + '/celyavox-api/voicemail/move_message');
             try{
                 var u = new URL(base, window.location.origin);
                 if(apiExt) u.searchParams.set('extension', apiExt);
@@ -1355,7 +1355,7 @@
             // Nettoyer les slash
             domain = domain.replace(/\/$/, "");
 
-            var url = domain + '/sipapp-api/cdr/calls?extension=' + encodeURIComponent(apiExt);
+            var url = domain + '/celyavox-api/cdr/calls?extension=' + encodeURIComponent(apiExt);
             if(apiKey) url += '&api_key=' + encodeURIComponent(apiKey);
             if(prefixe) url += '&prefixe=' + encodeURIComponent(prefixe);
 
@@ -1446,7 +1446,7 @@
             if(!/^https?:\/\//i.test(domain)) domain = 'https://' + domain;
             domain = domain.replace(/\/$/, '');
 
-            var base = localStorage.getItem('ForwardDetailUrl') || (domain + '/sipapp-api/forward/forward_detail');
+            var base = localStorage.getItem('ForwardDetailUrl') || (domain + '/celyavox-api/forward/forward_detail');
             var u;
             try{
                 u = new URL(base, window.location.origin);
@@ -1576,7 +1576,7 @@
                             saving = true;
                             setMsg('Enregistrement…', false);
                             try{
-                                var base = localStorage.getItem('ForwardEditUrl') || (domain.replace(/\/$/, '') + '/sipapp-api/forward/forward_edit');
+                                var base = localStorage.getItem('ForwardEditUrl') || (domain.replace(/\/$/, '') + '/celyavox-api/forward/forward_edit');
                                 var u = new URL(base, window.location.origin);
                                 var cfCb2 = document.getElementById('toggleCf');
                                 var cfInput2 = document.getElementById('cfNumber');
@@ -1795,7 +1795,7 @@
                                         var domain = getCfg(["SipDomain","SipDomaine"]);
                                         if(!/^https?:\/\//i.test(domain)) domain = 'https://' + domain;
                                         domain = domain.replace(/\/$/, '');
-                                        base = domain + '/sipapp-api/ldap/contacts';
+                                        base = domain + '/celyavox-api/ldap/contacts';
                                     }
                                     var u = new URL(base, window.location.origin);
                                     // Paramètre de recherche (sn)
@@ -1913,14 +1913,14 @@
                             }
 
                             // Recherche via API Contact configurable
-                            // Utilise localStorage.ContactSearchUrl si défini, sinon tente /sipapp-api/contacts/search puis fallback LDAP /sipapp-api/ldap/contacts
+                            // Utilise localStorage.ContactSearchUrl si défini, sinon tente /celyavox-api/contacts/search puis fallback LDAP /celyavox-api/ldap/contacts
                             window.searchContactsApi = function(q){
                                 q = (q||'').trim();
                                 try{
                                     var domain = getCfg(["SipDomain","SipDomaine"]);
                                     if(!/^https?:\/\//i.test(domain)) domain = 'https://' + domain;
                                     domain = domain.replace(/\/$/, '');
-                                    var base = localStorage.getItem('ContactSearchUrl') || (domain + '/sipapp-api/contacts/search');
+                                    var base = localStorage.getItem('ContactSearchUrl') || (domain + '/celyavox-api/contacts/search');
                                     var u = new URL(base, window.location.origin);
                                     // Essayer paramètres courants
                                     // q générique
@@ -1940,7 +1940,7 @@
                                         .then(function(res){
                                             if(!res.ok){
                                                 // Fallback automatique sur LDAP contacts si 404/500
-                                                var fb = domain + '/sipapp-api/ldap/contacts';
+                                                var fb = domain + '/celyavox-api/ldap/contacts';
                                                 var uf = new URL(fb, window.location.origin);
                                                 uf.searchParams.set('sn', q);
                                                 if(apiKey) uf.searchParams.set('api_key', apiKey);

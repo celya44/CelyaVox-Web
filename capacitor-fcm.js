@@ -84,7 +84,7 @@ async function sendFCMTokenToAPI(token) {
         }
         baseUrl = baseUrl.replace(/\/$/, '');
         
-        const url = new URL(baseUrl + '/sipapp-api/fcm/settoken');
+        const url = new URL(baseUrl + '/celyavox-api/fcm/settoken');
         url.searchParams.set('extension', config.extension);
         url.searchParams.set('token_fcm', token);
         

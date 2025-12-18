@@ -15821,7 +15821,7 @@ function onVersionRequest(iq){
 
     var iq_response = $iq({'type':'result', 'id':id, 'to':from, 'from':to});
     iq_response.c('query', {'xmlns':'jabber:iq:version'});
-    iq_response.c('name', null, 'SipApp');
+    iq_response.c('name', null, 'CelyaVox');
     iq_response.c('version', null, '0.0.1');
     iq_response.c('os', null, 'Browser');
     XMPP.send(iq_response);
