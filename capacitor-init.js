@@ -145,6 +145,13 @@ if (window.Capacitor) {
 
                     // Trigger Native Call UI via CallKitVoip
                     if (CallKitVoip) {
+                        // Si l'application est au premier plan, on ne déclenche pas la notification native
+                        // car l'interface web gérera l'appel entrant via SIP
+                        if (document.visibilityState === 'visible') {
+                            console.log("App is visible - skipping native CallKit notification");
+                            return;
+                        }
+
                         console.log("Triggering CallKitVoip show_call_notification...");
                         const callData = {
                             connectionId: data.id || data.uuid || Date.now().toString(),
