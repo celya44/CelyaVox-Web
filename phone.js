@@ -15,9 +15,9 @@
 
 // Global Settings
 // ===============
-const appversion = "1.0.3";
+const appversion = "1.0.4";
 const sipjsversion = "0.20.0";
-const electron_version_needed = "1.0.4"; // Version minimale de l'application Electron requise
+const electron_version_needed = "1.0.6"; // Version minimale de l'application Electron requise
 const navUserAgent = window.navigator.userAgent;  // TODO: change to Navigator.userAgentData
 const instanceID = String(Date.now());
 const localDB = window.localStorage;
