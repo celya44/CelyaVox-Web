@@ -1210,6 +1210,26 @@ function UpdateUI(){
             promptObj.parent().css('top', windowHeight/2 - offsetTextHeight/2 + 'px');
         }
     }
+
+    // Disable le bouton Home (nav-clavier) pendant une communication
+    try {
+        var hasCalls = false;
+        if(userAgent && userAgent.sessions){
+            hasCalls = countSessions("0") > 0;
+        } else if(Lines && Lines.length){
+            hasCalls = Lines.some(function(l){ return l && l.SipSession; });
+        }
+        var homeBtn = document.getElementById("nav-clavier");
+        if(homeBtn){
+            homeBtn.disabled = hasCalls;
+            if(hasCalls){
+                homeBtn.classList.add("bottom-nav__item--disabled");
+            } else {
+                homeBtn.classList.remove("bottom-nav__item--disabled");
+            }
+        }
+    } catch(e){ console.warn("Home button disable check failed", e); }
+
     HidePopup();
 }
 
@@ -1222,37 +1242,37 @@ function AddSomeoneWindow(numberStr){
     $("#searchArea").hide();
     $("#actionArea").empty();
 
-    var html = "<div style=\"text-align:right\"><button class=roundButtons onclick=\"ShowContacts()\"><i class=\"fa fa-close\"></i></button></div>"
-    
+    var html = "";
+
     html += "<div border=0 class=UiSideField>";
 
     html += "<div class=UiText>"+ lang.full_name +":</div>";
     html += "<div><input id=AddSomeone_Name class=UiInputText type=text placeholder='"+ lang.eg_full_name +"'></div>";
-    html += "<div><input type=checkbox id=AddSomeone_Dnd><label for=AddSomeone_Dnd>"+ lang.allow_calls_on_dnd +"</label></div>";
+    //html += "<div><input type=checkbox id=AddSomeone_Dnd><label for=AddSomeone_Dnd>"+ lang.allow_calls_on_dnd +"</label></div>";
 
     // Type
-    html += "<ul style=\"list-style-type:none\">";
-    html += "<li><input type=radio name=buddyType id=type_exten checked><label for=type_exten>"+ lang.basic_extension +"</label>";
-    if(ChatEngine == "XMPP"){
-        html += "<li><input type=radio name=buddyType id=type_xmpp><label for=type_xmpp>"+ lang.extension_including_xmpp +"</label>";
-    }
-    html += "<li><input type=radio name=buddyType id=type_contact><label for=type_contact>"+ lang.addressbook_contact +"</label>";
-    html += "</ul>";
+    //html += "<ul style=\"list-style-type:none\">";
+    //html += "<li><input type=radio name=buddyType id=type_exten checked><label for=type_exten>"+ lang.basic_extension +"</label>";
+    //if(ChatEngine == "XMPP"){
+    //    html += "<li><input type=radio name=buddyType id=type_xmpp><label for=type_xmpp>"+ lang.extension_including_xmpp +"</label>";
+    //}
+    //html += "<li><input type=radio name=buddyType id=type_contact><label for=type_contact>"+ lang.addressbook_contact +"</label>";
+    //html += "</ul>";
 
     html += "<div id=RowDescription>";
     html += "<div class=UiText>"+ lang.title_description +":</div>";
     html += "<div><input id=AddSomeone_Desc class=UiInputText type=text placeholder='"+ lang.eg_general_manager +"'></div>";
     html += "</div>";
 
-    html += "<div id=RowExtension>";
-    html += "<div class=UiText>"+ lang.extension_number +":</div>";
-    html += "<div><input id=AddSomeone_Exten class=UiInputText type=text placeholder='"+ lang.eg_internal_subscribe_extension +"'></div>";
-    html += "<div><input type=checkbox id=AddSomeone_Subscribe><label for=AddSomeone_Subscribe>"+ lang.subscribe_to_dev_state +"</label></div>";
-    html += "<div id=RowSubscribe style=\"display:none; margin-left:30px;\">";
-    html += "<div class=UiText>"+ lang.internal_subscribe_extension +":</div>";
-    html += "<div><input id=AddSomeone_SubscribeUser class=UiInputText type=text placeholder='"+ lang.eg_internal_subscribe_extension +"'></div>";
-    html += "</div>";
-    html += "</div>";
+    //html += "<div id=RowExtension>";
+    //html += "<div class=UiText>"+ lang.extension_number +":</div>";
+    //html += "<div><input id=AddSomeone_Exten class=UiInputText type=text placeholder='"+ lang.eg_internal_subscribe_extension +"'></div>";
+    //html += "<div><input type=checkbox id=AddSomeone_Subscribe><label for=AddSomeone_Subscribe>"+ lang.subscribe_to_dev_state +"</label></div>";
+    //html += "<div id=RowSubscribe style=\"display:none; margin-left:30px;\">";
+    //html += "<div class=UiText>"+ lang.internal_subscribe_extension +":</div>";
+    //html += "<div><input id=AddSomeone_SubscribeUser class=UiInputText type=text placeholder='"+ lang.eg_internal_subscribe_extension +"'></div>";
+    //html += "</div>";
+    //html += "</div>";
 
     html += "<div id=RowMobileNumber>";
     html += "<div class=UiText>"+ lang.mobile_number +":</div>";
@@ -1274,10 +1294,10 @@ function AddSomeoneWindow(numberStr){
     html += "<div><input id=AddSomeone_Num2 class=UiInputText type=text placeholder='"+ lang.eg_contact_number_2 +"'></div>";
     html += "</div>";
 
-    html += "<div id=Persistance>";
-    html += "<div class=UiText>Auto Delete:</div>";
-    html += "<div><input type=checkbox id=AddSomeone_AutoDelete><label for=AddSomeone_AutoDelete>"+ lang.yes +"</label></div>";
-    html += "</div>";
+    //html += "<div id=Persistance>";
+    //html += "<div class=UiText>Auto Delete:</div>";
+    //html += "<div><input type=checkbox id=AddSomeone_AutoDelete><label for=AddSomeone_AutoDelete>"+ lang.yes +"</label></div>";
+    //html += "</div>";
 
     html += "</div>";
 
@@ -1296,8 +1316,8 @@ function AddSomeoneWindow(numberStr){
                 if($("#AddSomeone_Exten").val() == "") return;
             }
 
-            var type = "extension";
-            if($("#type_exten").is(':checked')){
+            var type = "contact";
+/*            if($("#type_exten").is(':checked')){
                 type = "extension";
                 if($("#AddSomeone_Subscribe").is(':checked') && $("#AddSomeone_SubscribeUser").val() == ""){
                     $("#AddSomeone_SubscribeUser").val($("#AddSomeone_Exten").val())
@@ -1310,13 +1330,13 @@ function AddSomeoneWindow(numberStr){
             } else if($("#type_contact").is(':checked')){
                 type = "contact";
             }
-
+*/
             // Add Contact / Extension
             var json = JSON.parse(localDB.getItem(profileUserID + "-Buddies"));
             if(json == null) json = InitUserBuddies();
 
             var buddyObj = null;
-            if(type == "extension"){
+/*            if(type == "extension"){
                 // Add Extension
                 var id = uID();
                 var dateNow = utcDateNow();
@@ -1410,14 +1430,15 @@ function AddSomeoneWindow(numberStr){
 
                 // Add memory object
                 AddBuddy(buddyObj, false, false, $("#AddSomeone_Subscribe").is(':checked'), true);
-            }
+            } */
+
             if(type == "contact"){
                 // Add Regular Contact
                 var id = uID();
                 var dateNow = utcDateNow();
                 json.DataCollection.push(
                     {
-                        Type: "contact", 
+                        Type: "contact_perso", 
                         LastActivity: dateNow,
                         ExtensionNumber: "", 
                         MobileNumber: $("#AddSomeone_Mobile").val(),
@@ -1437,7 +1458,7 @@ function AddSomeoneWindow(numberStr){
                         AutoDelete: $("#AddSomeone_AutoDelete").is(':checked')
                     }
                 );
-                buddyObj = new Buddy("contact", 
+                buddyObj = new Buddy("contact_perso", 
                                         id, 
                                         $("#AddSomeone_Name").val(), 
                                         "", 
@@ -1447,7 +1468,7 @@ function AddSomeoneWindow(numberStr){
                                         dateNow, 
                                         $("#AddSomeone_Desc").val(), 
                                         $("#AddSomeone_Email").val(), 
-                                        jid, 
+                                        null, 
                                         $("#AddSomeone_Dnd").is(':checked'), 
                                         false,
                                         null,
@@ -1461,9 +1482,14 @@ function AddSomeoneWindow(numberStr){
             json.TotalRows = json.DataCollection.length;
             localDB.setItem(profileUserID + "-Buddies", JSON.stringify(json));
 
+            try {
+                if(window.renderPersonalContacts) window.renderPersonalContacts();
+            } catch(e){ console.warn(e); }
+
             UpdateBuddyList();
 
             ShowContacts();
+            ShowDial();
         }
     });
     buttons.push({
@@ -1587,7 +1613,7 @@ function EditBuddyWindow(buddy){
     
     html += "<div class=UiText>"+ lang.full_name +":</div>";
     html += "<div><input id=AddSomeone_Name class=UiInputText type=text placeholder='"+ lang.eg_full_name +"' value='"+ ((buddyJson.DisplayName && buddyJson.DisplayName != "null" && buddyJson.DisplayName != "undefined")? buddyJson.DisplayName : "") +"'></div>";
-    html += "<div><input type=checkbox id=AddSomeone_Dnd "+ ((buddyJson.EnableDuringDnd == true)? "checked" : "" ) +"><label for=AddSomeone_Dnd>Allow calls while on Do Not Disturb</label></div>";
+//    html += "<div><input type=checkbox id=AddSomeone_Dnd "+ ((buddyJson.EnableDuringDnd == true)? "checked" : "" ) +"><label for=AddSomeone_Dnd>Allow calls while on Do Not Disturb</label></div>";
 
     html += "<div class=UiText>"+ lang.title_description +":</div>";
     html += "<div><input id=AddSomeone_Desc class=UiInputText type=text placeholder='"+ lang.eg_general_manager +"' value='"+ ((buddyJson.Description && buddyJson.Description != "null" && buddyJson.Description != "undefined")? buddyJson.Description : "") +"'></div>";
@@ -1616,15 +1642,17 @@ function EditBuddyWindow(buddy){
     html += "<div class=UiText>"+ lang.contact_number_2 +":</div>";
     html += "<div><input id=AddSomeone_Num2 class=UiInputText type=text placeholder='"+ lang.eg_contact_number_2 +"' value='"+ ((buddyJson.ContactNumber2 && buddyJson.ContactNumber2 != "null" && buddyJson.ContactNumber2 != "undefined")? buddyJson.ContactNumber2 : "") +"'></div>";
 
-    html += "<div class=UiText>Auto Delete:</div>";
-    html += "<div><input type=checkbox id=AddSomeone_AutoDelete "+ ((buddyJson.AutoDelete == true)? "checked" : "" ) +"><label for=AddSomeone_AutoDelete>"+ lang.yes +"</label></div>";
+//    html += "<div class=UiText>Auto Delete:</div>";
+//    html += "<div><input type=checkbox id=AddSomeone_AutoDelete "+ ((buddyJson.AutoDelete == true)? "checked" : "" ) +"><label for=AddSomeone_AutoDelete>"+ lang.yes +"</label></div>";
 
     // TODO, add option to delete data, etc, etc
     html += "<div class=UiText><button onclick=\"RemoveBuddy('"+ buddyObj.identity +"')\" class=\"UiDeleteButton\"><i class=\"fa fa-trash\"></i> "+ lang.delete_buddy +"</button></div>";
 
     html += "</div>"
 
-    OpenWindow(html, lang.edit, 480, 640, false, true, lang.save, function(){
+    var bottomNavHeight = ($(".bottom-nav").outerHeight())? $(".bottom-nav").outerHeight() : 0;
+    var dialogHeight = Math.max($(window).height() - bottomNavHeight - 40, 480);
+    OpenWindow(html, lang.edit, dialogHeight, 640, false, true, lang.save, function(){
 
         if($("#AddSomeone_Name").val() == "") return;
         if($("#AddSomeone_Subscribe").is(':checked')){
@@ -1724,8 +1752,15 @@ function EditBuddyWindow(buddy){
         // Save To DB
         localDB.setItem(profileUserID + "-Buddies", JSON.stringify(json));
 
+        try { if(typeof renderPersonalContacts === "function") renderPersonalContacts(); } catch(e){ console.warn(e); }
+
+        // Retourner sur le dialpad après sauvegarde
+        try { ShowDial(); } catch(e){ console.warn(e); }
         CloseWindow();
     }, lang.cancel, function(){
+        try { if(typeof renderPersonalContacts === "function") renderPersonalContacts(); } catch(e){ console.warn(e); }
+        // Retourner sur le dialpad après annulation
+        try { ShowDial(); } catch(e){ console.warn(e); }
         CloseWindow();
     }, function(){
         // DoOnLoad
@@ -1860,13 +1895,13 @@ function InitUi(){
 
     // Action Buttons
     leftHTML += "<span class=settingsMenu>";
-    leftHTML += "<button class=roundButtons id=BtnFreeDial><i class=\"fa fa-phone\"></i></button>";
-    leftHTML += "<button class=roundButtons id=BtnAddSomeone><i class=\"fa fa-user-plus\"></i></button>";
+    leftHTML += "<button id=\"line-6-btn-settings\" onclick=\"ChangeSettings('6', this)\" class=\"roundButtons\" title=\"Paramètres de l'appareil\"><i class=\"fa fa-volume-up\"></i></button>";
+/*    leftHTML += "<button class=roundButtons id=BtnAddSomeone><i class=\"fa fa-user-plus\"></i></button>";
     if(false){
          // TODO
         leftHTML += "<button id=BtnCreateGroup><i class=\"fa fa-users\"></i><i class=\"fa fa-plus\" style=\"font-size:9px\"></i></button>";
     }
-    leftHTML += "<button class=roundButtons id=SettingsMenu><i class=\"fa fa-cogs\"></i></button>";
+    leftHTML += "<button class=roundButtons id=SettingsMenu><i class=\"fa fa-cogs\"></i></button>"; */
     leftHTML += "</span>";  // class=settingsMenu
 
     // Display Name
@@ -1909,9 +1944,6 @@ function InitUi(){
     phone.append(leftSection);
     phone.append(rightSection);
 
-    if(DisableFreeDial == true) {
-        $("#BtnFreeDial").hide();
-    }
     if(DisableBuddies == true) {
         $("#BtnAddSomeone").hide();
     }
@@ -1976,19 +2008,6 @@ function InitUi(){
     //     UpdateBuddyList();
     //     $("#txtFindBuddy").focus();
     // });
-
-    $("#BtnFreeDial").attr("title", lang.call)
-    $("#BtnFreeDial").on('click', function(event){
-        if(DisableFreeDial == true) return;
-
-        if(UiCustomDialButton == true){
-            if(typeof web_hook_dial_out !== 'undefined') {
-                web_hook_dial_out(event);
-            }
-        } else {
-            ShowDial();
-        }
-    });
 
     $("#BtnAddSomeone").attr("title", lang.add_someone)
     $("#BtnAddSomeone").on('click', function(event){
@@ -7079,16 +7098,103 @@ function MixAudioStreams(MultiAudioTackStream){
     return mixedAudioStream.stream;
 }
 
+// Ensure LDAP search helper is available even if Contacts sidebar has never been opened.
+function ensureSearchLdapBySn(){
+    if(typeof window.searchLdapBySn === "function") return;
+    function toArrayFromResponse(js){
+        if(!js) return [];
+        if(Array.isArray(js)) return js;
+        if(Array.isArray(js.items)) return js.items;
+        if(Array.isArray(js.data)) return js.data;
+        // data peut être un JSON stringifié
+        if(typeof js.data === "string"){
+            try{
+                var parsed = JSON.parse(js.data);
+                if(Array.isArray(parsed)) return parsed;
+            }catch(e){ /* ignore */ }
+        }
+        // Réponse avec clé dataString ou itemsString éventuelle
+        if(typeof js.items === "string"){
+            try{
+                var parsedItems = JSON.parse(js.items);
+                if(Array.isArray(parsedItems)) return parsedItems;
+            }catch(e){ /* ignore */ }
+        }
+        return [];
+    }
+    function getCfgSafe(keys){
+        // Try existing global getCfg
+        if(typeof getCfg === "function"){
+            try { return getCfg(keys); } catch(e) {}
+        }
+        // Try known globals
+        for(var i=0;i<keys.length;i++){
+            var k = keys[i];
+            if(typeof window[k] !== "undefined" && window[k] !== null) return window[k];
+        }
+        // Try localStorage direct
+        try{
+            for(var j=0;j<keys.length;j++){
+                var val = localStorage.getItem(keys[j]);
+                if(val) return val;
+            }
+        }catch(e){}
+        return null;
+    }
+    window.searchLdapBySn = function(q){
+        q = (q||"").trim();
+        try{
+            var base = null;
+            try{ base = localStorage.getItem("LdapSearchUrl"); }catch(e){}
+            if(!base){
+                var domain = getCfgSafe(["SipDomain","SipDomaine","sipdomain","sipdomaine"]);
+                if(!domain || domain === "") domain = window.location.origin;
+                if(!/^https?:\/\//i.test(domain)) domain = "https://" + domain;
+                domain = domain.replace(/\/$/, "");
+                base = domain + "/celyavox-api/ldap/contacts";
+            }
+            var u = new URL(base, window.location.origin);
+            u.searchParams.set("sn", q);
+            var apiKey = getCfgSafe(["api_key","ApiKey","API_KEY"]);
+            if(apiKey) u.searchParams.set("api_key", apiKey);
+            try{ var pfx = localStorage.getItem("prefixe") || ""; if(pfx) u.searchParams.set("prefixe", pfx); }catch(e){}
+            var headers = {};
+            var bearer = null, basicUser = null, basicPass = null;
+            try{ bearer = localStorage.getItem("LdapBearer"); }catch(e){}
+            try{ basicUser = localStorage.getItem("LdapUser"); basicPass = localStorage.getItem("LdapPass"); }catch(e){}
+            if(bearer){
+                headers["Authorization"] = "Bearer " + bearer;
+            } else if(basicUser || basicPass){
+                headers["Authorization"] = "Basic " + btoa(String(basicUser||"") + ":" + String(basicPass||""));
+            }
+            return fetch(u.toString(), { headers: headers })
+                .then(function(res){ if(!res.ok) throw new Error("HTTP " + res.status); return res.json(); })
+                .then(function(js){
+                    var items = toArrayFromResponse(js) || [];
+                    return { ok:true, items: items };
+                })
+                .catch(function(err){ return { ok:false, error: (err && err.message)? err.message : String(err) }; });
+        } catch(e){
+            return Promise.resolve({ ok:false, error: (e && e.message)? e.message : String(e) });
+        }
+    };
+    console.log("searchLdapBySn registered (lazy)");
+}
+// Register once at load time so QuickFindBuddy always has the helper, même si le side panel Contacts n'est jamais ouvert.
+ensureSearchLdapBySn();
+
 // Call Transfer & Conference
 // ============================
-function QuickFindBuddy(obj){
+function QuickFindBuddy(obj, lineNum){
+    ensureSearchLdapBySn();
     var filter = obj.value;
     if(filter == "") {
+        console.log("QuickFindBuddy: empty filter, skip");
         HidePopup();
         return;
     }
 
-    console.log("Find Buddy: ", filter);
+    console.log("QuickFindBuddy: filter=", filter);
 
     Buddies.sort(function(a, b){
         if(a.CallerIDName < b.CallerIDName) return -1;
@@ -7098,10 +7204,38 @@ function QuickFindBuddy(obj){
 
     var items = [];
     var visibleItems = 0;
+    var maxLocal = 5;
+
+    function showMenu(list){
+        if(list.length > 1){
+            var menu = {
+                selectEvent : function( event, ui ) {
+                    var number = ui.item.attr("value");
+                    if(number == null) HidePopup();
+                    if(number != "null" && number != "" && number != undefined) {
+                        HidePopup();
+                        obj.value = number;
+                        if(lineNum){
+                            AttendedTransfer(lineNum);
+                        }
+                    }
+                },
+                createEvent : null,
+                autoFocus : false,
+                items : list
+            }
+            PopupMenu(obj, menu);
+        } else {
+            HidePopup();
+        }
+    }
+
+    // Suggestions locales: seulement contact_perso
     for(var b = 0; b < Buddies.length; b++){
         var buddyObj = Buddies[b];
 
-        // Perform Filter Display
+        if(buddyObj.type !== "contact_perso") continue;
+
         var display = false;
         if(buddyObj.CallerIDName && buddyObj.CallerIDName.toLowerCase().indexOf(filter.toLowerCase()) > -1) display = true;
         if(buddyObj.ExtNo && buddyObj.ExtNo.toLowerCase().indexOf(filter.toLowerCase()) > -1) display = true;
@@ -7110,50 +7244,71 @@ function QuickFindBuddy(obj){
         if(buddyObj.ContactNumber1 && buddyObj.ContactNumber1.toLowerCase().indexOf(filter.toLowerCase()) > -1) display = true;
         if(buddyObj.ContactNumber2 && buddyObj.ContactNumber2.toLowerCase().indexOf(filter.toLowerCase()) > -1) display = true;
         if(display) {
-            // Filtered Results
-            var iconClass = "dotDefault";
-            if(buddyObj.type == "extension" && buddyObj.EnableSubscribe == true) {
-                iconClass = buddyObj.devState;
-            } else if(buddyObj.type == "xmpp" && buddyObj.EnableSubscribe == true) {
-                iconClass = buddyObj.devState;
-            }
             if(visibleItems > 0) items.push({ value: null, text: "-"});
             items.push({ value: null, text: buddyObj.CallerIDName, isHeader: true });
-            if(buddyObj.ExtNo != "") {
-                items.push({ icon : "fa fa-phone-square "+ iconClass, text: lang.extension +" ("+ buddyObj.presence +"): "+ buddyObj.ExtNo, value: buddyObj.ExtNo });
-            }
-            if(buddyObj.MobileNumber != "") {
+            if(buddyObj.MobileNumber) {
                 items.push({ icon : "fa fa-mobile", text: lang.mobile +": "+ buddyObj.MobileNumber, value: buddyObj.MobileNumber });
             }
-            if(buddyObj.ContactNumber1 != "") {
+            if(buddyObj.ContactNumber1) {
                 items.push({ icon : "fa fa-phone", text: lang.call +": "+ buddyObj.ContactNumber1, value: buddyObj.ContactNumber1 });
             }
-            if(buddyObj.ContactNumber2 != "") {
+            if(buddyObj.ContactNumber2) {
                 items.push({ icon : "fa fa-phone", text: lang.call +": "+ buddyObj.ContactNumber2, value: buddyObj.ContactNumber2 });
             }
             visibleItems++;
         }
-        if(visibleItems >= 5) break;
+        if(visibleItems >= maxLocal) break;
     }
 
-    if(items.length > 1){
-        var menu = {
-            selectEvent : function( event, ui ) {
-                var number = ui.item.attr("value");
-                if(number == null) HidePopup();
-                if(number != "null" && number != "" && number != undefined) {
-                    HidePopup();
-                    obj.value = number;
+    // Afficher les suggestions locales immédiatement
+    showMenu(items);
+
+    var hasSearchFn = (typeof window.searchLdapBySn === "function");
+    var trimmedLen = filter.trim().length;
+    console.log("QuickFindBuddy: ldapFn=", hasSearchFn, "trimmedLen=", trimmedLen);
+
+    // Ajout des résultats LDAP (mêmes API que le side panel Contacts)
+    var token = Date.now();
+    obj.dataset.qfToken = token;
+    if(hasSearchFn && trimmedLen >= 2){
+        console.log("QuickFindBuddy: calling searchLdapBySn", filter);
+        window.searchLdapBySn(filter).then(function(resp){
+            console.log("QuickFindBuddy: ldap resp", resp);
+            if(String(obj.dataset.qfToken) !== String(token)) return; // saisie changée
+            if(!resp || resp.ok !== true || !Array.isArray(resp.items)) return;
+
+            var ldapItems = [];
+            var added = 0;
+            function toList(v){
+                if(v == null) return [];
+                if(Array.isArray(v)) return v.map(function(x){ return String(x); });
+                return [ String(v) ];
+            }
+            for(var i=0;i<resp.items.length && added < 5;i++){
+                var it = resp.items[i] || {};
+                var name = (it.name || it.displayName || it.cn || (((it.givenName||'') + ' ' + (it.sn||'')).trim()) || it.dn || 'Contact').trim();
+                var telList = toList(it.telephoneNumber);
+                var mobList = toList(it.mobile);
+                var homeList = toList(it.homePhone);
+                var nums = [];
+                telList.forEach(function(n){ if(n && nums.indexOf(n) === -1) nums.push(n); });
+                mobList.forEach(function(n){ if(n && nums.indexOf(n) === -1) nums.push(n); });
+                homeList.forEach(function(n){ if(n && nums.indexOf(n) === -1) nums.push(n); });
+                if(nums.length === 0) continue;
+                if(items.length > 0 || ldapItems.length > 0) ldapItems.push({ value:null, text:"-"});
+                ldapItems.push({ value:null, text:name, isHeader:true });
+                for(var k=0;k<nums.length && added < 5;k++){
+                    ldapItems.push({ icon:"fa fa-phone", text: lang.call +": "+ nums[k], value: nums[k] });
+                    added++;
                 }
-            },
-            createEvent : null,
-            autoFocus : false,
-            items : items
-        }
-        PopupMenu(obj, menu);
-    } 
-    else {
-        HidePopup();
+            }
+            if(ldapItems.length){
+                console.log("QuickFindBuddy: ldap items count", ldapItems.length);
+                showMenu(items.concat(ldapItems));
+            }
+        }).catch(function(e){ console.warn(e); });
+    } else {
+        console.log("QuickFindBuddy: skip ldap call (hasFn=", hasSearchFn, "len=", trimmedLen, ")");
     }
 }
 
@@ -7176,7 +7331,7 @@ function StartTransferSession(lineNum){
     $("#line-"+ lineNum +"-session-avatar").css("height", "50px");
     RestoreCallControls(lineNum)
 
-    $("#line-"+ lineNum +"-btn-blind-transfer").show();
+    $("#line-"+ lineNum +"-btn-blind-transfer").hide();
     $("#line-"+ lineNum +"-btn-attended-transfer").show();
     $("#line-"+ lineNum +"-btn-complete-transfer").hide();
     $("#line-"+ lineNum +"-btn-cancel-transfer").hide();
@@ -7223,13 +7378,7 @@ function transferOnkeydown(event, obj, lineNum) {
     var keycode = (event.keyCode ? event.keyCode : event.which);
     if (keycode == '13'){
         event.preventDefault();
-        if(event.ctrlKey){
-            AttendedTransfer(lineNum);
-        }
-        else {
-            BlindTransfer(lineNum);
-        }
-
+        AttendedTransfer(lineNum);
         return false;
     }
 }
@@ -7424,7 +7573,6 @@ function AttendedTransfer(lineNum){
             session.data.transfer[transferId].dispositionTime = utcDateNow();
 
             $("#line-"+ lineNum +"-txt-FindTransferBuddy").parent().show();
-            $("#line-"+ lineNum +"-btn-blind-transfer").show();
             $("#line-"+ lineNum +"-btn-attended-transfer").show();
     
             $("#line-"+ lineNum +"-btn-complete-attended-transfer").hide();
@@ -7616,7 +7764,6 @@ function AttendedTransfer(lineNum){
                 session.data.transfer[transferId].dispositionTime = utcDateNow();
         
                 $("#line-"+ lineNum +"-txt-FindTransferBuddy").parent().show();
-                $("#line-"+ lineNum +"-btn-blind-transfer").show();
                 $("#line-"+ lineNum +"-btn-attended-transfer").show();
         
                 $("#line-"+ lineNum +"-btn-complete-attended-transfer").hide();
@@ -9068,7 +9215,7 @@ function ShowDial(){
     $("#searchArea").hide();
     $("#actionArea").empty();
 
-    var html = "<div style=\"text-align:right\"><button class=roundButtons onclick=\"ShowContacts()\"><i class=\"fa fa-close\"></i></button></div>"
+    var html = "";
     html += "<div style=\"text-align:center; margin-top:15px\"><input id=dialText class=dialTextInput oninput=\"handleDialInput(this, event)\" onkeydown=\"dialOnkeydown(event, this)\" style=\"width:170px; height:32px\"><button id=dialDeleteKey class=roundButtons onclick=\"KeyPress('del')\">⌫</button></div>";
     html += "<table cellspacing=10 cellpadding=0 style=\"margin-left:auto; margin-right: auto\">";
     html += "<tr><td><button class=dialButtons onclick=\"KeyPress('1')\"><div>1</div><span>&nbsp;</span></button></td>"
@@ -9263,7 +9410,7 @@ function ShowSortAnfFilter(){
     $("#searchArea").hide();
     $("#actionArea").empty();
 
-    var html = "<div style=\"text-align:right\"><button class=roundButtons onclick=\"ShowContacts()\"><i class=\"fa fa-close\"></i></button></div>"
+    var html = "";
     html += "<table cellspacing=10 cellpadding=0 style=\"margin-left:auto; margin-right: auto\">";
     // By Type (and what order)
     html += "<tr><td><div><input disabled type=radio name=sort_by id=sort_by_type><label for=sort_by_type>"+ lang.sort_type +"</label></div>";
@@ -9648,7 +9795,6 @@ function AddLineHtml(lineObj, direction){
     html += "<div style=\"margin-top:10px\">";
     html += "<span class=searchClean><input id=\"line-"+ lineObj.LineNumber +"-txt-FindTransferBuddy\" oninput=\"QuickFindBuddy(this,'"+ lineObj.LineNumber +"')\" onkeydown=\"transferOnkeydown(event, this, '"+ lineObj.LineNumber +"')\" type=text autocomplete=none style=\"width:150px;\" autocomplete=none placeholder=\""+ lang.search_or_enter_number +"\"></span>";
     html += "<br>"
-    html += " <button id=\"line-"+ lineObj.LineNumber +"-btn-blind-transfer\" onclick=\"BlindTransfer('"+ lineObj.LineNumber +"')\"><i class=\"fa fa-reply\" style=\"transform: rotateY(180deg)\"></i> "+ lang.blind_transfer +"</button>"
     html += " <button id=\"line-"+ lineObj.LineNumber +"-btn-attended-transfer\" onclick=\"AttendedTransfer('"+ lineObj.LineNumber +"')\"><i class=\"fa fa-reply-all\" style=\"transform: rotateY(180deg)\"></i> "+ lang.attended_transfer +"</button>";
     html += " <button id=\"line-"+ lineObj.LineNumber +"-btn-complete-attended-transfer\" style=\"display:none\"><i class=\"fa fa-reply-all\" style=\"transform: rotateY(180deg)\"></i> "+ lang.complete_transfer +"</button>";
     html += " <button id=\"line-"+ lineObj.LineNumber +"-btn-cancel-attended-transfer\" style=\"display:none\"><i class=\"fa fa-phone\" style=\"transform: rotate(135deg);\"></i> "+ lang.cancel_transfer +"</button>";
@@ -10279,6 +10425,26 @@ function PopulateBuddyList() {
         else if(item.Type == "contact"){
             // contact
             var buddy = new Buddy("contact", 
+                                    item.cID, 
+                                    item.DisplayName, 
+                                    "", 
+                                    item.MobileNumber, 
+                                    item.ContactNumber1, 
+                                    item.ContactNumber2, 
+                                    item.LastActivity, 
+                                    item.Description, 
+                                    item.Email, 
+                                    null, 
+                                    item.EnableDuringDnd, 
+                                    item.Subscribe,
+                                    item.SubscribeUser,
+                                    item.AutoDelete,
+                                    item.Pinned);
+            AddBuddy(buddy, false, false, false);
+        }
+        else if(item.Type == "contact_perso"){
+            // personal contact
+            var buddy = new Buddy("contact_perso", 
                                     item.cID, 
                                     item.DisplayName, 
                                     "", 
@@ -11063,8 +11229,11 @@ function RemoveBuddy(buddy){
  //   CloseWindow();
 
     Confirm(lang.confirm_remove_buddy, lang.remove_buddy, function(){
-        DoRemoveBuddy(buddy)
+        DoRemoveBuddy(buddy);
         UpdateBuddyList();
+        try { if(typeof renderPersonalContacts === "function") renderPersonalContacts(); } catch(e){ console.warn(e); }
+        CloseWindow();
+        ShowDial();
     });
 }
 function DoRemoveBuddy(buddy){
@@ -11077,6 +11246,18 @@ function DoRemoveBuddy(buddy){
             break;
         }
     }
+
+    // Remove from local storage
+    try {
+        var json = JSON.parse(localDB.getItem(profileUserID + "-Buddies"));
+        if(json && Array.isArray(json.DataCollection)){
+            json.DataCollection = json.DataCollection.filter(function(item){
+                return !(item && (item.uID == buddy || item.cID == buddy || item.gID == buddy));
+            });
+            json.TotalRows = json.DataCollection.length;
+            localDB.setItem(profileUserID + "-Buddies", JSON.stringify(json));
+        }
+    } catch(e){ console.warn(e); }
 }
 function FindBuddyByDid(did){
     // Used only in Inbound
@@ -11279,6 +11460,11 @@ function RefreshStream(buddyObj, filter) {
         else if (item.ItemType == "CDR") {
             // Add CDR 
             // =======
+
+            // Do not render missed inbound calls (no answer, no billable time)
+            if (item.SrcUserId != profileUserID && (!item.CallAnswer || item.Billsec === 0 || item.Billsec === "0")) {
+                return true; // continue to next stream item without showing a missed-call card
+            }
 
             // CdrId = uID(),
             // ItemType: "CDR",
@@ -12348,7 +12534,7 @@ function ShowMyProfile(){
     $("#searchArea").hide();
     $("#actionArea").empty();
 
-    var html = "<div style=\"text-align:right\"><button class=roundButtons onclick=\"ShowContacts()\"><i class=\"fa fa-close\"></i></button></div>"
+    var html = "";
 
     html += "<div border=0 class=UiSideField>";
 
@@ -13545,7 +13731,8 @@ function ChangeSettings(lineNum, obj){
     // Check if you are in a call
     var lineObj = FindLineByNumber(lineNum);
     if(lineObj == null || lineObj.SipSession == null) {
-        console.warn("SIP Session is NULL.");
+        // Pas de session en cours : afficher un menu global de sélection des périphériques
+        ShowDefaultDeviceMenu(obj);
         return;
     }
     var session = lineObj.SipSession;
@@ -13693,6 +13880,87 @@ function ChangeSettings(lineNum, obj){
                     HidePopup();
 
                     switchVideoSource(lineNum, newid);
+                }
+            }
+            else {
+                HidePopup();
+            }
+        },
+        createEvent : null,
+        autoFocus : true,
+        items : items
+    }
+    PopupMenu(obj, menu);
+}
+
+// Menu de sélection des périphériques hors appel (utilise les valeurs par défaut)
+function ShowDefaultDeviceMenu(obj){
+    if(!navigator.mediaDevices) {
+        console.warn("navigator.mediaDevices not possible.");
+        return;
+    }
+
+    var items = [];
+
+    // Microphones
+    items.push({value: "", icon : null, text: lang.microphone, isHeader: true });
+    for (var i = 0; i < AudioinputDevices.length; ++i) {
+        var deviceInfo = AudioinputDevices[i];
+        var devideId = deviceInfo.deviceId;
+        var DisplayName = (deviceInfo.label)? deviceInfo.label : "Microphone";
+        if(DisplayName.indexOf("(") > 0) DisplayName = DisplayName.substring(0,DisplayName.indexOf("("));
+        var disabled = (getAudioSrcID() == devideId);
+        items.push({value: "input-"+ devideId, icon : "fa fa-microphone", text: DisplayName, isDisabled : disabled });
+    }
+
+    // Speakers
+    if(HasSpeakerDevice){
+        items.push({value: "", icon : null, text: "-" });
+        items.push({value: "", icon : null, text: lang.speaker, isHeader: true });
+        for (var i = 0; i < SpeakerDevices.length; ++i) {
+            var deviceInfo = SpeakerDevices[i];
+            var devideId = deviceInfo.deviceId;
+            var DisplayName = (deviceInfo.label)? deviceInfo.label : "Speaker";
+            if(DisplayName.indexOf("(") > 0) DisplayName = DisplayName.substring(0,DisplayName.indexOf("("));
+            var disabled = (getAudioOutputID() == devideId);
+            items.push({value: "output-"+ devideId, icon : "fa fa-volume-up", text: DisplayName, isDisabled : disabled });
+        }
+    }
+
+    // Cameras (si vidéo activée)
+    if(EnableVideoCalling == true){
+        items.push({value: "", icon : null, text: "-" });
+        items.push({value: "", icon : null, text: lang.camera, isHeader: true });
+        for (var i = 0; i < VideoinputDevices.length; ++i) {
+            var deviceInfo = VideoinputDevices[i];
+            var devideId = deviceInfo.deviceId;
+            var DisplayName = (deviceInfo.label)? deviceInfo.label : "Webcam";
+            if(DisplayName.indexOf("(") > 0) DisplayName = DisplayName.substring(0,DisplayName.indexOf("("));
+            var disabled = (getVideoSrcID() == devideId);
+            items.push({value: "video-"+ devideId, icon : "fa fa-video-camera", text: DisplayName, isDisabled : disabled });
+        }
+    }
+
+    var menu = {
+        selectEvent : function( event, ui ) {
+            var id = ui.item.attr("value");
+            if(id != null) {
+                HidePopup();
+
+                if(id.indexOf("input-") > -1){
+                    var newid = id.replace("input-", "");
+                    console.log("Set default Microphone: ", newid);
+                    localDB.setItem("AudioSrcId", newid);
+                }
+                if(id.indexOf("output-") > -1){
+                    var newid = id.replace("output-", "");
+                    console.log("Set default Speaker: ", newid);
+                    localDB.setItem("AudioOutputId", newid);
+                }
+                if(id.indexOf("video-") > -1){
+                    var newid = id.replace("video-", "");
+                    console.log("Set default Webcam: ", newid);
+                    localDB.setItem("VideoSrcId", newid);
                 }
             }
             else {

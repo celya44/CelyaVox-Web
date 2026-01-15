@@ -199,7 +199,7 @@
                             style="width: 100%; min-height: 80px; padding: 10px; font-size: 14px; border: 2px solid #4A90E2; border-radius: 6px; font-family: monospace; box-sizing: border-box; outline: none; background: white; overflow-wrap: break-word; word-break: break-all; text-align: left; line-height: 1.5;"
                             spellcheck="false"></div>
                     </div>
-                    <div style="display: flex; justify-content: space-between; gap: 10px;">
+                    <div id="sipUrlActions" style="display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
                         <button id="sipUrlBtn" style="flex: 1; padding: 12px; background-color: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 1em; font-weight: bold;">Valider</button>
                         <button id="manualConfigBtn" style="flex: 1; padding: 12px; background-color: #f0f0f0; color: #333; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; font-size: 1em;">Configurer manuellement</button>
                     </div>
@@ -278,6 +278,60 @@
                         document.body.removeChild(overlay);
                         resolve({ type: "manual" });
                     });
+
+                    const actionsBar = document.getElementById("sipUrlActions");
+                    const qrHelper = window.capacitorQrScanner;
+                    const qrAvailable = qrHelper && typeof qrHelper.isAvailable === "function" && qrHelper.isAvailable();
+
+                    if (actionsBar && qrAvailable) {
+                        const qrBtn = document.createElement("button");
+                        qrBtn.id = "scanQrBtn";
+                        qrBtn.type = "button";
+                        qrBtn.textContent = "Scanner un QR code";
+                        qrBtn.style.flex = "1 1 100%";
+                        qrBtn.style.padding = "12px";
+                        qrBtn.style.backgroundColor = "#111827";
+                        qrBtn.style.color = "#fff";
+                        qrBtn.style.border = "none";
+                        qrBtn.style.borderRadius = "6px";
+                        qrBtn.style.cursor = "pointer";
+                        qrBtn.style.fontSize = "1em";
+                        qrBtn.style.fontWeight = "600";
+                        qrBtn.style.marginTop = "10px";
+                        actionsBar.appendChild(qrBtn);
+
+                        qrBtn.addEventListener("click", async () => {
+                            if (!window.capacitorQrScanner || typeof window.capacitorQrScanner.scanForConfigUrl !== "function") {
+                                alert("Le scanner QR n'est pas prêt.");
+                                return;
+                            }
+
+                            const defaultLabel = "Scanner un QR code";
+                            qrBtn.disabled = true;
+                            qrBtn.textContent = "Scan en cours…";
+
+                            try {
+                                const scannedUrl = await window.capacitorQrScanner.scanForConfigUrl();
+                                if (scannedUrl) {
+                                    urlInput.textContent = scannedUrl;
+                                    urlInput.focus();
+                                    urlInput.style.borderColor = "#10b981";
+                                    setTimeout(() => {
+                                        urlInput.style.borderColor = "#4A90E2";
+                                    }, 2200);
+                                } else {
+                                    alert("Aucun QR code détecté.");
+                                }
+                            } catch (error) {
+                                console.error(error);
+                                const message = error && error.message ? error.message : "Erreur inattendue";
+                                alert("Impossible de lire le QR code : " + message);
+                            } finally {
+                                qrBtn.disabled = false;
+                                qrBtn.textContent = defaultLabel;
+                            }
+                        });
+                    }
                 }, 100);
             });
         }
@@ -520,6 +574,7 @@
     <script type="text/javascript" src="phone.js"></script>
 <script type="text/javascript" src="capacitor-fcm.js"></script>
 <script type="text/javascript" src="capacitor-init.js"></script>
+    <script type="text/javascript" src="capacitor-qr.js"></script>
 
     <!-- Script du panneau latéral (simple, sans logique fonctionnelle avancée) -->
     <script type="text/javascript">
@@ -1526,6 +1581,11 @@
                     var state = extractForwardState(js || {});
                     var html = ''
                         + '<div style="padding:12px;">'
+                        +   '<div style="margin-bottom:12px;">'
+                        +       '<button type="button" style="width:100%; padding:10px 12px; border-radius:8px; text-align:left; color:#000; background:transparent; border:1px solid #d1d5db; font-size:14px; line-height:18px; cursor:pointer;" onclick="try{ ShowMyProfile ? ShowMyProfile() : null; }catch(e){ console.warn(e); }">'
+                        +           '<span style="font-weight:600; font-size:14px; line-height:18px;">Configurer l\'extension</span>'
+                        +       '</button>'
+                        +   '</div>'
                         +   '<div style="margin-bottom:12px; font-weight:500;">Paramètres de ligne</div>'
                         +   '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:8px;">'
                         +       '<div>'
@@ -1728,10 +1788,94 @@
                             + "<label for='txtFindBuddyContacts' style='display:block; font-size:13px; color:#374151; margin-bottom:6px;'>Rechercher un contact</label>"
                             + "<input id='txtFindBuddyContacts' type='text' placeholder='Nom (ex: jpr), numéro…' autocomplete='off'"
                             + " style='display:block; width:100%; max-width:100%; box-sizing:border-box; padding:10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;' />"
-                            + "<div id='ldapResultsContacts' style='margin-top:10px; min-height:24px;'></div>"
+                            + "<div style='display:flex; align-items:center; justify-content:space-between; margin:10px 0 8px 0;'>"
+                            + "<div id='ldapResultsContacts' style='margin-top:6px; min-height:24px;'></div>"
+                            + "</div>"
+                            + "<div style='display:flex; align-items:center; justify-content:space-between; margin-top:6px;'>"
+                            + "<div style='font-weight:600;'>Contacts personnels</div>"
+                            + "<button type='button' class='roundButtons' title='Ajouter un contact' onclick=\"try{ AddSomeoneWindow(''); closePanel(); }catch(e){ console.warn(e); }\"><i class='fa fa-user-plus'></i></button>"
+                            + "</div>"
+                            + "<div id='personalContactsList' style='margin-top:10px;'></div>"
                             + "</div>",
                             'contacts'
                         );
+
+                        // Liste des contacts personnels (type contact_perso)
+                        (function(){
+                            function escapeHtml(str){
+                                if(str == null) return '';
+                                return String(str).replace(/[&<>"']/g, function(ch){
+                                    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[ch]);
+                                });
+                            }
+                            function editPersonalContact(cid){
+                                if(!cid) return;
+                                try {
+                                    if(typeof EditBuddyWindow === 'function'){
+                                        EditBuddyWindow(cid);
+                                    }
+                                } catch(e){ console.warn(e); }
+                            }
+                            function removePersonalContact(cid){
+                                if(!cid) return;
+                                var json = null;
+                                try {
+                                    json = JSON.parse(localStorage.getItem(profileUserID + "-Buddies"));
+                                } catch(e){ json = null; }
+                                if(!json || !Array.isArray(json.DataCollection)) return;
+                                json.DataCollection = json.DataCollection.filter(function(it){
+                                    return !(it && it.Type === "contact_perso" && String(it.cID || "") === cid);
+                                });
+                                json.TotalRows = json.DataCollection.length;
+                                localStorage.setItem(profileUserID + "-Buddies", JSON.stringify(json));
+                                renderPersonalContacts();
+                            }
+                            function renderPersonalContacts(){
+                                var listEl = document.getElementById('personalContactsList');
+                                if(!listEl) return;
+
+                                var json = null;
+                                try {
+                                    json = JSON.parse(localStorage.getItem(profileUserID + "-Buddies"));
+                                } catch(e){ json = null; }
+
+                                var items = (json && Array.isArray(json.DataCollection)) ? json.DataCollection.filter(function(it){
+                                    return it && it.Type === "contact_perso";
+                                }) : [];
+
+                                if(items.length === 0){
+                                    listEl.innerHTML = "<div style='color:#6b7280; font-size:13px;'>Aucun contact personnel.</div>";
+                                    return;
+                                }
+
+                                var h = "<ul style='list-style:none; padding:0; margin:8px 0 0 0;'>";
+                                for(var i=0;i<items.length;i++){
+                                    var it = items[i] || {};
+                                    var name = escapeHtml(it.DisplayName || "Sans nom");
+                                    var num = escapeHtml(it.ContactNumber1 || it.MobileNumber || it.ExtensionNumber || "");
+                                    var desc = escapeHtml(it.Description || "");
+                                    var cid = escapeHtml(it.cID || "");
+                                    h += "<li style='padding:8px 0; border-bottom:1px solid #e5e7eb;'>";
+                                    h += "<div style='display:flex; align-items:center; justify-content:space-between; gap:8px;'>";
+                                    h += "<div style='flex:1; min-width:0;'>";
+                                    h += "<div style='font-weight:600; color:#111827;'>"+ name +"</div>";
+                                    if(num) h += "<div style='color:#374151; font-size:13px;'>"+ num +"</div>";
+                                    if(desc) h += "<div style='color:#6b7280; font-size:12px;'>"+ desc +"</div>";
+                                    h += "</div>";
+                                    h += "<button type='button' class='roundButtons' title='Modifier ce contact' onclick=\"try{ editPersonalContact('"+ cid +"'); }catch(e){ console.warn(e); }\"><i class='fa fa-pencil'></i></button>";
+                                    h += "<button type='button' class='roundButtons' title='Supprimer ce contact' onclick=\"try{ removePersonalContact('"+ cid +"'); }catch(e){ console.warn(e); }\"><i class='fa fa-trash'></i></button>";
+                                    h += "</div>";
+                                    h += "</li>";
+                                }
+                                h += "</ul>";
+                                listEl.innerHTML = h;
+                            }
+
+                            renderPersonalContacts();
+                            window.renderPersonalContacts = renderPersonalContacts;
+                            window.editPersonalContact = editPersonalContact;
+                            window.removePersonalContact = removePersonalContact;
+                        })();
 
                         // Câblage: recherche LDAP au fil de la saisie
                         (function(){

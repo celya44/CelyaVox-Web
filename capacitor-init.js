@@ -16,6 +16,8 @@ if (window.Capacitor) {
         const { PushNotifications } = Capacitor.Plugins;
         // Use CallKitVoip instead of CallKeep
         const CallKitVoip = Capacitor.Plugins.CallKitVoip;
+        // CallEvents plugin pour ConnectionService Android
+        const CallEvents = Capacitor.Plugins.CallEvents;
 
         if (!PushNotifications) {
             console.warn("PushNotifications plugin not found");
@@ -97,6 +99,67 @@ if (window.Capacitor) {
 
             } catch (e) {
                 console.error("CallKitVoip setup failed", e);
+            }
+        }
+
+        // 2b. Initialize CallEvents (Android ConnectionService)
+        if (CallEvents) {
+            window.CallEvents = CallEvents;
+            
+            try {
+                console.log("Initializing CallEvents (Android ConnectionService)...");
+                
+                // Listen for Answer (Android ConnectionService UI)
+                CallEvents.addListener('callAnswered', (data) => {
+                    console.log('🟢 CallEvents callAnswered (Android)', data);
+                    // data: { callId, action: "answered" }
+                    
+                    // Set a flag to auto-answer the next incoming SIP call
+                    window.autoAnswerNextCall = true;
+
+                    // Force SIP Reconnect/Answer logic here
+                    if (typeof reconnectXmpp === 'function') {
+                        reconnectXmpp();
+                    }
+                    
+                    // If we already have lines, try to answer
+                    if (typeof AnswerAudioCall === 'function' && typeof Lines !== 'undefined') {
+                        for(var l=0; l<Lines.length; l++) {
+                            if(Lines[l].SipSession && Lines[l].SipSession.state === 'Initial') {
+                                console.log('Answering SIP call on line', Lines[l].LineNumber);
+                                AnswerAudioCall(Lines[l].LineNumber);
+                                window.autoAnswerNextCall = false;
+                                break;
+                            }
+                        }
+                    }
+                });
+
+                // Listen for Reject (Android ConnectionService UI)
+                CallEvents.addListener('callRejected', (data) => {
+                    console.log('🔴 CallEvents callRejected (Android)', data);
+                    // data: { callId, action: "rejected" }
+                    
+                    // Hangup any incoming calls
+                    if (typeof Lines !== 'undefined') {
+                        for(var l=0; l<Lines.length; l++) {
+                            if(Lines[l].SipSession && Lines[l].SipSession.state === 'Initial') {
+                                console.log('Rejecting SIP call on line', Lines[l].LineNumber);
+                                // Use appropriate hangup function
+                                if (typeof HangupCall === 'function') {
+                                    HangupCall(Lines[l].LineNumber);
+                                } else if (Lines[l].SipSession.reject) {
+                                    Lines[l].SipSession.reject();
+                                }
+                                break;
+                            }
+                        }
+                    }
+                });
+                
+                console.log("CallEvents listeners registered");
+            } catch (e) {
+                console.error("CallEvents setup failed", e);
             }
         }
 
