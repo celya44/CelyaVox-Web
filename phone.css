@@ -219,9 +219,17 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 12px;
+    height: 50px !important;
+    min-height: 50px !important;
+    flex: 0 0 50px;
+    padding: 0 12px;
+    box-sizing: border-box;
     background: #f6f6f6;
     border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+.sidepanel[data-type="history"] .sidepanel__header {
+    height: 50px !important;
+    min-height: 50px !important;
 }
 .sidepanel__title { font-weight: 600; }
 .sidepanel__close {
@@ -235,7 +243,7 @@
 .sidepanel__content {
     padding: 8px 0;
     overflow: auto; /* Un seul scroll, sur le contenu */
-    max-height: calc(100vh - 64px - 48px); /* viewport - bottom bar (64) - header (~48) */
+    max-height: calc(100vh - 64px - 50px); /* viewport - bottom bar (64) - header (50) */
 }
 
 /* Infobulle rapide pour le statut */
