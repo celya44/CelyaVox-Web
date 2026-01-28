@@ -1858,17 +1858,25 @@
                                     h += "<li style='padding:8px 0; border-bottom:1px solid #e5e7eb;'>";
                                     h += "<div style='display:flex; align-items:center; justify-content:space-between; gap:8px;'>";
                                     h += "<div style='flex:1; min-width:0;'>";
-                                    h += "<div style='font-weight:600; color:#111827;'>"+ name +"</div>";
-                                    if(num) h += "<div style='color:#374151; font-size:13px;'>"+ num +"</div>";
-                                    if(desc) h += "<div style='color:#6b7280; font-size:12px;'>"+ desc +"</div>";
+                                    h += "<div style='font-weight:600; color:#111827; display:flex; align-items:baseline; gap:6px; flex-wrap:wrap;'>";
+                                    h += "<span>"+ name +"</span>";
+                                    if(desc) h += "<span style='font-weight:400; color:#6b7280; font-size:12px;'>"+ desc +"</span>";
                                     h += "</div>";
-                                    h += "<button type='button' class='roundButtons' title='Modifier ce contact' onclick=\"try{ editPersonalContact('"+ cid +"'); }catch(e){ console.warn(e); }\"><i class='fa fa-pencil'></i></button>";
-                                    h += "<button type='button' class='roundButtons' title='Supprimer ce contact' onclick=\"try{ removePersonalContact('"+ cid +"'); }catch(e){ console.warn(e); }\"><i class='fa fa-trash'></i></button>";
+                                    if(num){
+                                        var callBtn = "<button type=\"button\" class=\"ldap-call\" data-number=\""+ num +"\" style=\"appearance:none; border:0; background:transparent; color:#2563eb; cursor:pointer; padding:0;\">"+ num +"</button>";
+                                        h += "<div style='color:#374151; font-size:13px;'><i class='fa fa-phone'></i> " + callBtn + "</div>";
+                                    }
+                                    h += "</div>";
+                                    h += "<div style='display:flex; align-items:center; gap:0; margin-left:auto; padding-right:0;'>";
+                                    h += "<button type='button' class='roundButtons' title='Modifier ce contact' style='width:26px; height:26px; line-height:26px; font-size:14px; padding:0;' onclick=\"try{ editPersonalContact('"+ cid +"'); }catch(e){ console.warn(e); }\"><i class='fa fa-pencil'></i></button>";
+                                    h += "<button type='button' class='roundButtons' title='Supprimer ce contact' style='width:26px; height:26px; line-height:26px; font-size:14px; padding:0;' onclick=\"try{ removePersonalContact('"+ cid +"'); }catch(e){ console.warn(e); }\"><i class='fa fa-trash'></i></button>";
+                                    h += "</div>";
                                     h += "</div>";
                                     h += "</li>";
                                 }
                                 h += "</ul>";
                                 listEl.innerHTML = h;
+                                try{ bindLdapDialClicks(); }catch(e){ console.warn(e); }
                             }
 
                             renderPersonalContacts();
