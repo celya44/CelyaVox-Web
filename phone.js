@@ -7326,6 +7326,7 @@ function StartTransferSession(lineNum){
     holdSession(lineNum);
     $("#line-"+ lineNum +"-txt-FindTransferBuddy").val("");
     $("#line-"+ lineNum +"-txt-FindTransferBuddy").parent().show();
+    $("#line-"+ lineNum +"-transfer-dialpad").show();
 
     $("#line-"+ lineNum +"-session-avatar").css("width", "50px");
     $("#line-"+ lineNum +"-session-avatar").css("height", "50px");
@@ -7371,8 +7372,22 @@ function CancelTransferSession(lineNum){
 
     unholdSession(lineNum);
     $("#line-"+ lineNum +"-Transfer").hide();
+    $("#line-"+ lineNum +"-transfer-dialpad").hide();
 
     updateLineScroll(lineNum);
+}
+function appendTransferDial(lineNum, val){
+    var $input = $("#line-"+ lineNum +"-txt-FindTransferBuddy");
+    if(!$input.length) return;
+    var cur = String($input.val() || "");
+    if(val === 'del'){
+        cur = cur.slice(0, -1);
+    } else {
+        cur += String(val);
+    }
+    $input.val(cur);
+    try{ QuickFindBuddy($input[0], lineNum); }catch(e){}
+    try{ $input.focus(); }catch(e){}
 }
 function transferOnkeydown(event, obj, lineNum) {
     var keycode = (event.keyCode ? event.keyCode : event.which);
@@ -7800,6 +7815,7 @@ function StartConferenceCall(lineNum){
     holdSession(lineNum);
     $("#line-"+ lineNum +"-txt-FindConferenceBuddy").val("");
     $("#line-"+ lineNum +"-txt-FindConferenceBuddy").parent().show();
+    $("#line-"+ lineNum +"-conference-dialpad").show();
 
     $("#line-"+ lineNum +"-session-avatar").css("width", "50px");
     $("#line-"+ lineNum +"-session-avatar").css("height", "50px");
@@ -7841,8 +7857,22 @@ function CancelConference(lineNum){
 
     unholdSession(lineNum);
     $("#line-"+ lineNum +"-Conference").hide();
+    $("#line-"+ lineNum +"-conference-dialpad").hide();
 
     updateLineScroll(lineNum);
+}
+function appendConferenceDial(lineNum, val){
+    var $input = $("#line-"+ lineNum +"-txt-FindConferenceBuddy");
+    if(!$input.length) return;
+    var cur = String($input.val() || "");
+    if(val === 'del'){
+        cur = cur.slice(0, -1);
+    } else {
+        cur += String(val);
+    }
+    $input.val(cur);
+    try{ QuickFindBuddy($input[0], lineNum); }catch(e){}
+    try{ $input.focus(); }catch(e){}
 }
 function conferenceOnkeydown(event, obj, lineNum) {
     var keycode = (event.keyCode ? event.keyCode : event.which);
@@ -9795,6 +9825,23 @@ function AddLineHtml(lineObj, direction){
     html += "<div style=\"margin-top:10px\">";
     html += "<span class=searchClean><input id=\"line-"+ lineObj.LineNumber +"-txt-FindTransferBuddy\" oninput=\"QuickFindBuddy(this,'"+ lineObj.LineNumber +"')\" onkeydown=\"transferOnkeydown(event, this, '"+ lineObj.LineNumber +"')\" type=text autocomplete=none style=\"width:150px;\" autocomplete=none placeholder=\""+ lang.search_or_enter_number +"\"></span>";
     html += "<br>"
+    html += "<div id=\"line-"+ lineObj.LineNumber +"-transfer-dialpad\" style=\"display:none; margin-top:6px;\">";
+    html += "<table style=\"margin:0 auto;\"><tbody>";
+    html += "<tr><td><button class=dialButtons onclick=\"appendTransferDial('"+ lineObj.LineNumber +"','1')\"><div>1</div><span>&nbsp;</span></button></td>";
+    html += "<td><button class=dialButtons onclick=\"appendTransferDial('"+ lineObj.LineNumber +"','2')\"><div>2</div><span>ABC</span></button></td>";
+    html += "<td><button class=dialButtons onclick=\"appendTransferDial('"+ lineObj.LineNumber +"','3')\"><div>3</div><span>DEF</span></button></td></tr>";
+    html += "<tr><td><button class=dialButtons onclick=\"appendTransferDial('"+ lineObj.LineNumber +"','4')\"><div>4</div><span>GHI</span></button></td>";
+    html += "<td><button class=dialButtons onclick=\"appendTransferDial('"+ lineObj.LineNumber +"','5')\"><div>5</div><span>JKL</span></button></td>";
+    html += "<td><button class=dialButtons onclick=\"appendTransferDial('"+ lineObj.LineNumber +"','6')\"><div>6</div><span>MNO</span></button></td></tr>";
+    html += "<tr><td><button class=dialButtons onclick=\"appendTransferDial('"+ lineObj.LineNumber +"','7')\"><div>7</div><span>PQRS</span></button></td>";
+    html += "<td><button class=dialButtons onclick=\"appendTransferDial('"+ lineObj.LineNumber +"','8')\"><div>8</div><span>TUV</span></button></td>";
+    html += "<td><button class=dialButtons onclick=\"appendTransferDial('"+ lineObj.LineNumber +"','9')\"><div>9</div><span>WXYZ</span></button></td></tr>";
+    html += "<tr><td><button class=dialButtons onclick=\"appendTransferDial('"+ lineObj.LineNumber +"','*')\">*</button></td>";
+    html += "<td><button class=dialButtons onclick=\"appendTransferDial('"+ lineObj.LineNumber +"','0')\">0</button></td>";
+    html += "<td><button class=dialButtons onclick=\"appendTransferDial('"+ lineObj.LineNumber +"','#')\">#</button></td></tr>";
+    html += "</tbody></table>";
+    html += "<div style=\"margin-top:4px;\"><button class=roundButtons onclick=\"appendTransferDial('"+ lineObj.LineNumber +"','del')\">⌫</button></div>";
+    html += "</div>";
     html += " <button id=\"line-"+ lineObj.LineNumber +"-btn-attended-transfer\" onclick=\"AttendedTransfer('"+ lineObj.LineNumber +"')\"><i class=\"fa fa-reply-all\" style=\"transform: rotateY(180deg)\"></i> "+ lang.attended_transfer +"</button>";
     html += " <button id=\"line-"+ lineObj.LineNumber +"-btn-complete-attended-transfer\" style=\"display:none\"><i class=\"fa fa-reply-all\" style=\"transform: rotateY(180deg)\"></i> "+ lang.complete_transfer +"</button>";
     html += " <button id=\"line-"+ lineObj.LineNumber +"-btn-cancel-attended-transfer\" style=\"display:none\"><i class=\"fa fa-phone\" style=\"transform: rotate(135deg);\"></i> "+ lang.cancel_transfer +"</button>";
@@ -9809,6 +9856,23 @@ function AddLineHtml(lineObj, direction){
     html += "<div style=\"margin-top:10px\">";
     html += "<span class=searchClean><input id=\"line-"+ lineObj.LineNumber +"-txt-FindConferenceBuddy\" oninput=\"QuickFindBuddy(this,'"+ lineObj.LineNumber +"')\" onkeydown=\"conferenceOnkeydown(event, this, '"+ lineObj.LineNumber +"')\" type=text autocomplete=none style=\"width:150px;\" autocomplete=none placeholder=\""+ lang.search_or_enter_number +"\"></span>";
     html += "<br>"
+    html += "<div id=\"line-"+ lineObj.LineNumber +"-conference-dialpad\" style=\"display:none; margin-top:6px;\">";
+    html += "<table style=\"margin:0 auto;\"><tbody>";
+    html += "<tr><td><button class=dialButtons onclick=\"appendConferenceDial('"+ lineObj.LineNumber +"','1')\"><div>1</div><span>&nbsp;</span></button></td>";
+    html += "<td><button class=dialButtons onclick=\"appendConferenceDial('"+ lineObj.LineNumber +"','2')\"><div>2</div><span>ABC</span></button></td>";
+    html += "<td><button class=dialButtons onclick=\"appendConferenceDial('"+ lineObj.LineNumber +"','3')\"><div>3</div><span>DEF</span></button></td></tr>";
+    html += "<tr><td><button class=dialButtons onclick=\"appendConferenceDial('"+ lineObj.LineNumber +"','4')\"><div>4</div><span>GHI</span></button></td>";
+    html += "<td><button class=dialButtons onclick=\"appendConferenceDial('"+ lineObj.LineNumber +"','5')\"><div>5</div><span>JKL</span></button></td>";
+    html += "<td><button class=dialButtons onclick=\"appendConferenceDial('"+ lineObj.LineNumber +"','6')\"><div>6</div><span>MNO</span></button></td></tr>";
+    html += "<tr><td><button class=dialButtons onclick=\"appendConferenceDial('"+ lineObj.LineNumber +"','7')\"><div>7</div><span>PQRS</span></button></td>";
+    html += "<td><button class=dialButtons onclick=\"appendConferenceDial('"+ lineObj.LineNumber +"','8')\"><div>8</div><span>TUV</span></button></td>";
+    html += "<td><button class=dialButtons onclick=\"appendConferenceDial('"+ lineObj.LineNumber +"','9')\"><div>9</div><span>WXYZ</span></button></td></tr>";
+    html += "<tr><td><button class=dialButtons onclick=\"appendConferenceDial('"+ lineObj.LineNumber +"','*')\">*</button></td>";
+    html += "<td><button class=dialButtons onclick=\"appendConferenceDial('"+ lineObj.LineNumber +"','0')\">0</button></td>";
+    html += "<td><button class=dialButtons onclick=\"appendConferenceDial('"+ lineObj.LineNumber +"','#')\">#</button></td></tr>";
+    html += "</tbody></table>";
+    html += "<div style=\"margin-top:4px;\"><button class=roundButtons onclick=\"appendConferenceDial('"+ lineObj.LineNumber +"','del')\">⌫</button></div>";
+    html += "</div>";
     html += " <button id=\"line-"+ lineObj.LineNumber +"-btn-conference-dial\" onclick=\"ConferenceDial('"+ lineObj.LineNumber +"')\"><i class=\"fa fa-phone\"></i> "+ lang.call +"</button>";
     html += " <button id=\"line-"+ lineObj.LineNumber +"-btn-cancel-conference-dial\" style=\"display:none\"><i class=\"fa fa-phone\" style=\"transform: rotate(135deg);\"></i> "+ lang.cancel_call +"</button>";
     html += " <button id=\"line-"+ lineObj.LineNumber +"-btn-join-conference-call\" style=\"display:none\"><i class=\"fa fa-users\"></i> "+ lang.join_conference_call +"</button>";
