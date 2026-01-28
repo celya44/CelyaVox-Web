@@ -811,7 +811,10 @@
                 btn.addEventListener('click', function(){
                     var num = btn.getAttribute('data-number') || '';
                     if(num){
-                        try{ if(window.DialByLine){ window.DialByLine('audio', null, num); } }
+                        try{
+                            if(window.handleSidePanelNumberClick && window.handleSidePanelNumberClick(num)) return;
+                            if(window.DialByLine){ window.DialByLine('audio', null, num); }
+                        }
                         catch(e){ console.error('Dial error', e); }
                     }
                 });
@@ -824,7 +827,10 @@
                 btn.addEventListener('click', function(){
                     var num = btn.getAttribute('data-number') || '';
                     if(num){
-                        try{ if(window.DialByLine){ window.DialByLine('audio', null, num); } }
+                        try{
+                            if(window.handleSidePanelNumberClick && window.handleSidePanelNumberClick(num)) return;
+                            if(window.DialByLine){ window.DialByLine('audio', null, num); }
+                        }
                         catch(e){ console.error('Dial error', e); }
                     }
                 });
@@ -2247,7 +2253,12 @@
                                     dialBtns.forEach(function(btn){
                                         btn.addEventListener('click', function(){
                                             var num = btn.getAttribute('data-number') || '';
-                                            if(num && window.DialByLine){ try{ window.DialByLine('audio', null, num); } catch(e){} }
+                                            if(num){
+                                                try{
+                                                    if(window.handleSidePanelNumberClick && window.handleSidePanelNumberClick(num)) return;
+                                                    if(window.DialByLine){ window.DialByLine('audio', null, num); }
+                                                } catch(e){}
+                                            }
                                         });
                                     });
                                     // Bind remove buttons

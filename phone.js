@@ -7861,6 +7861,37 @@ function CancelConference(lineNum){
 
     updateLineScroll(lineNum);
 }
+function handleSidePanelNumberClick(number){
+    if(!number) return false;
+    try{
+        if(typeof Lines === 'undefined' || !Array.isArray(Lines)) return false;
+        for(var i=0; i<Lines.length; i++){
+            var lineObj = Lines[i];
+            if(!lineObj || lineObj.LineNumber == null) continue;
+            var lineNum = lineObj.LineNumber;
+
+            var $transfer = $("#line-"+ lineNum +"-Transfer");
+            if($transfer.length && $transfer.is(":visible")){
+                $("#line-"+ lineNum +"-txt-FindTransferBuddy").val(number);
+                $("#line-"+ lineNum +"-txt-FindTransferBuddy").parent().show();
+                $("#line-"+ lineNum +"-transfer-dialpad").show();
+                try{ AttendedTransfer(lineNum); }catch(e){ console.warn(e); }
+                return true;
+            }
+
+            var $conference = $("#line-"+ lineNum +"-Conference");
+            if($conference.length && $conference.is(":visible")){
+                $("#line-"+ lineNum +"-txt-FindConferenceBuddy").val(number);
+                $("#line-"+ lineNum +"-txt-FindConferenceBuddy").parent().show();
+                $("#line-"+ lineNum +"-conference-dialpad").show();
+                try{ ConferenceDial(lineNum); }catch(e){ console.warn(e); }
+                return true;
+            }
+        }
+    } catch(e){ console.warn(e); }
+    return false;
+}
+window.handleSidePanelNumberClick = handleSidePanelNumberClick;
 function appendConferenceDial(lineNum, val){
     var $input = $("#line-"+ lineNum +"-txt-FindConferenceBuddy");
     if(!$input.length) return;
