@@ -2013,9 +2013,9 @@
                             "<div id='favoritesPanel' style='padding:12px; overflow-x:hidden;'>"
                             +   "<div style='display:flex; align-items:center; gap:10px; margin-bottom:10px;'>"
                             +       "<div id='favHelp' style='color:#6b7280; font-size:13px;'>Cliquez sur ADD pour ajouter un favori depuis l'annuaire.</div>"
-                            +       "<button id='favAddBtn' type='button' class='UiButton' title='Ajouter un favori'"
-                            +           " style='padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; background:#f9fafb; cursor:pointer;'>"
-                            +           "<i class='fa fa-plus'></i> ADD"
+                            +       "<button id='favAddBtn' type='button' class='roundButtons' title='Ajouter un favori'"
+                            +           " style='border:1px solid #d1d5db; background:#f9fafb; cursor:pointer;'>"
+                            +           "<i class='fa fa-user-plus'></i>"
                             +       "</button>"
                             +   "</div>"
                             +   "<div id='favList' style='margin-bottom:12px;'></div>"
@@ -2071,14 +2071,14 @@
                             }
 
                             // Recherche via API Contact configurable
-                            // Utilise localStorage.ContactSearchUrl si défini, sinon tente /celyavox-api/contacts/search puis fallback LDAP /celyavox-api/ldap/contacts
+                            // Utilise localStorage.ContactSearchUrl si défini, sinon LDAP /celyavox-api/ldap/contacts
                             window.searchContactsApi = function(q){
                                 q = (q||'').trim();
                                 try{
                                     var domain = getCfg(["SipDomain","SipDomaine"]);
                                     if(!/^https?:\/\//i.test(domain)) domain = 'https://' + domain;
                                     domain = domain.replace(/\/$/, '');
-                                    var base = localStorage.getItem('ContactSearchUrl') || (domain + '/celyavox-api/contacts/search');
+                                    var base = localStorage.getItem('ContactSearchUrl') || (domain + '/celyavox-api/ldap/contacts');
                                     var u = new URL(base, window.location.origin);
                                     // Essayer paramètres courants
                                     // q générique
@@ -2095,18 +2095,6 @@
                                     else if(basicUser || basicPass){ headers['Authorization'] = 'Basic ' + btoa(String(basicUser||'') + ':' + String(basicPass||'')); }
 
                                     return fetch(u.toString(), { headers: headers })
-                                        .then(function(res){
-                                            if(!res.ok){
-                                                // Fallback automatique sur LDAP contacts si 404/500
-                                                var fb = domain + '/celyavox-api/ldap/contacts';
-                                                var uf = new URL(fb, window.location.origin);
-                                                uf.searchParams.set('sn', q);
-                                                if(apiKey) uf.searchParams.set('api_key', apiKey);
-                                                try{ var pfx2 = localStorage.getItem('prefixe') || ''; if(pfx2) uf.searchParams.set('prefixe', pfx2); }catch(e){}
-                                                return fetch(uf.toString(), { headers: headers });
-                                            }
-                                            return res;
-                                        })
                                         .then(function(res){ return res.json(); })
                                         .then(function(js){
                                             var items = toArrayFromResponse(js) || [];
@@ -2165,9 +2153,9 @@
                                     var name = escHtml((it.DisplayName || it.CallerIDName || ''));
                                     var ext = escHtml(it.ExtensionNumber || it.ExtNo || '');
                                     var identity = escHtml(String(it.uID || it.cID || it.gID || ''));
-                                    var badge = ext ? ("<span style=\"margin-left:6px; font-size:11px; color:#1f2937; background:#e5e7eb; border:1px solid #d1d5db; border-radius:10px; padding:1px 6px;\">Ext "+ ext +"</span>") : "";
-                                    var dialBtn = ext ? ("<button type=\"button\" class=\"fav-dial\" data-number=\""+ ext +"\" title=\"Appeler\" style=\"margin-left:8px; padding:2px 6px; border:1px solid #d1d5db; background:#fff; border-radius:6px; cursor:pointer;\"><i class='fa fa-phone'></i></button>") : "";
-                                    var remBtn = identity ? ("<button type=\"button\" class=\"fav-remove\" data-id=\""+ identity +"\" title=\"Retirer des favoris\" style=\"margin-left:6px; padding:2px 6px; border:1px solid #ef4444; background:#fef2f2; color:#991b1b; border-radius:6px; cursor:pointer;\"><i class='fa fa-times'></i></button>") : "";
+                                    var badge = ext ? ("<button type=\"button\" class=\"fav-dial\" data-number=\""+ ext +"\" title=\"Appeler\" style=\"margin-left:6px; font-size:11px; color:#2563eb; background:transparent; border:0; padding:0; cursor:pointer;\"><i class='fa fa-phone'></i> "+ ext +"</button>") : "";
+                                    var dialBtn = "";
+                                    var remBtn = identity ? ("<button type=\"button\" class=\"roundButtons fav-remove\" data-id=\""+ identity +"\" title=\"Retirer des favoris\" style=\"margin-left:6px;\"><i class='fa fa-trash'></i></button>") : "";
                                     var presDot = identity ? ("<span id='fav-pres-"+ identity +"' title='' aria-label=''"
                                                      + " style=\"display:inline-block;width:8px;height:8px;border-radius:50%;background:#16a34a;margin-right:6px;vertical-align:middle;\"></span>") : "";
                                     var presText = identity ? ("<span id='fav-pres-text-"+ identity +"' style=\"margin-left:8px; font-size:12px; color:#6b7280;\"></span>") : "";

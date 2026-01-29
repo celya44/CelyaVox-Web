@@ -15,9 +15,9 @@
 
 // Global Settings
 // ===============
-const appversion = "1.0.4";
+const appversion = "1.0.5";
 const sipjsversion = "0.20.0";
-const electron_version_needed = "1.0.6"; // Version minimale de l'application Electron requise
+const electron_version_needed = "1.0.7"; // Version minimale de l'application Electron requise
 const navUserAgent = window.navigator.userAgent;  // TODO: change to Navigator.userAgentData
 const instanceID = String(Date.now());
 const localDB = window.localStorage;
@@ -658,7 +658,8 @@ function showVersionWarning(currentVersion, neededVersion) {
     html += "Votre version de l'application (<strong>" + currentVersion + "</strong>) est obsolète.";
     html += "</p>";
     html += "<p style='text-align: center; color: #666; margin-bottom: 20px;'>";
-    html += "Version minimale requise : <strong>" + neededVersion + "</strong>";
+    html += "Version minimale requise : <strong>" + neededVersion + "</strong><BR>";
+    html += "Pour télécharger l'application allez sur : <a href='https://celyavox.celya.fr/' target='_blank'>https://celyavox.celya.fr</a>";
     html += "</p>";
     html += "<div style='text-align: center;'>";
     html += "<button onclick='$(this).closest(\"div\").parent().remove()' style='background: #4CAF50; color: white; border: none; padding: 12px 30px; font-size: 16px; border-radius: 5px; cursor: pointer;'>OK</button>";
@@ -5502,6 +5503,23 @@ closed: In the context of INSTANT MESSAGES, this value means that
         $("#contact-" + buddyObj.identity + "-presence").html(Presence);
         $("#contact-" + buddyObj.identity + "-presence-main").html(Presence);
     }
+
+    // Si un appel est en cours, forcer l'affichage de la liste des lignes
+    try{
+        var hasActiveLine = false;
+        if(Array.isArray(Lines)){
+            for(var li = 0; li < Lines.length; li++){
+                var ln = Lines[li];
+                if(ln && ln.SipSession && (!ln.SipSession.data || ln.SipSession.data.earlyReject != true)){
+                    hasActiveLine = true;
+                    break;
+                }
+            }
+        }
+        if(hasActiveLine){
+            UpdateBuddyList();
+        }
+    } catch(e){ /* no-op */ }
 
     // Custom Handling of Notify/BLF
     if(typeof web_hook_on_notify !== 'undefined')  web_hook_on_notify(ContentType, buddyObj, notification.request.body);
@@ -10781,10 +10799,23 @@ function UpdateBuddyList(){
 
     // Make Select
     // ===========
-    for(var b = 0; b < Buddies.length; b++) {
-        if(Buddies[b].IsSelected) {
-            SelectBuddy(Buddies[b].identity, Buddies[b].type);
-            break;
+    // Ne pas écraser l'UI des lignes si un appel est en cours
+    var hasActiveLine = false;
+    if(Array.isArray(Lines)){
+        for(var li = 0; li < Lines.length; li++){
+            var ln = Lines[li];
+            if(ln && ln.SipSession && (!ln.SipSession.data || ln.SipSession.data.earlyReject != true)){
+                hasActiveLine = true;
+                break;
+            }
+        }
+    }
+    if(!hasActiveLine){
+        for(var b = 0; b < Buddies.length; b++) {
+            if(Buddies[b].IsSelected) {
+                SelectBuddy(Buddies[b].identity, Buddies[b].type);
+                break;
+            }
         }
     }
 }
