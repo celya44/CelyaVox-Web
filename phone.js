@@ -96,7 +96,7 @@ let DoNotDisturbEnabled = (getDbItem("DoNotDisturbEnabled", "0") == "1");   // R
 let CallWaitingEnabled = (getDbItem("CallWaitingEnabled", "1") == "1");     // Rejects any inbound call if you are on a call already.
 let RecordAllCalls = (getDbItem("RecordAllCalls", "0") == "1");             // Starts Call Recording when a call is established.
 let StartVideoFullScreen = (getDbItem("StartVideoFullScreen", "1") == "1"); // Starts a video call in the full screen (browser screen, not desktop)
-let SelectRingingLine = (getDbItem("SelectRingingLine", "1") == "1");       // Selects the ringing line if you are not on another call ()
+let SelectRingingLine = (getDbItem("SelectRingingLine", "1") == "1");       // Selects the ringing line (même si un autre appel est déjà actif)
 
 let UiMaxWidth = parseInt(getDbItem("UiMaxWidth", 1240));                                   // Sets the max-width for the UI elements (don't set this less than 920. Set to very high number for full screen eg: 999999)
 let UiThemeStyle = getDbItem("UiThemeStyle", "system");                                     // Sets the color theme for the UI dark | light | system (set by your systems dark/light settings)
@@ -1927,8 +1927,8 @@ function InitUi(){
     // leftHTML += "</td></tr>";
     leftHTML += "<tr><td class=streamSection>"
 
-    // Lines & Buddies
-    leftHTML += "<div id=myContacts class=\"contactArea cleanScroller\"></div>"
+    // Lines & Buddies (myContacts doit rester caché)
+    leftHTML += "<div id=myContacts class=\"contactArea cleanScroller\" style=\"display:none\"></div>"
     leftHTML += "<div id=actionArea style=\"display:none\" class=\"contactArea cleanScroller\"></div>"
     
     leftHTML += "</td></tr>";
@@ -2092,14 +2092,16 @@ function InitUi(){
     // Custom Web hook
     if(typeof web_hook_on_init !== 'undefined') web_hook_on_init();
 
-    // Afficher le pavé de numérotation au démarrage (même vue que le bouton "Call")
-    // Respecte l'option DisableFreeDial si le numéroteur libre est désactivé.
+    // Au démarrage, reproduire l'action du bouton Home (nav-clavier)
     try {
-        if(DisableFreeDial !== true) {
+        var homeBtn = document.getElementById("nav-clavier");
+        if(homeBtn && typeof homeBtn.click === "function"){
+            homeBtn.click();
+        } else if(typeof ShowDial === 'function') {
             ShowDial();
         }
     } catch(e) {
-        console.warn("Impossible d'afficher le pavé de numérotation au chargement:", e);
+        console.warn("Impossible d'appliquer l'état Home au chargement:", e);
     }
 
     CreateUserAgent();
@@ -3020,9 +3022,12 @@ function ReceiveCall(session) {
     // Check if that buddy is not already on a call??
     var streamVisible = $("#stream-"+ buddyObj.identity).is(":visible");
     if (streamVisible || CurrentCalls == 0) {
+ //JPR   if (streamVisible || CurrentCalls == 0 || (CurrentCalls >= 1 && SelectRingingLine)) {
         // If you are already on the selected buddy who is now calling you, switch to his call.
         // NOTE: This will put other calls on hold
         if(CurrentCalls == 0) SelectLine(lineObj.LineNumber);
+ //JPR       if(SelectRingingLine) SelectLine(lineObj.LineNumber);
+ //JPR       try{ $("#line-" + lineObj.LineNumber).get(0).scrollIntoViewIfNeeded(); } catch(e){}
     }
 
     // Show notification / Ring / Windows Etc
@@ -9290,6 +9295,15 @@ var Line = function(lineNumber, displayName, displayNumber, buddyObj){
 function ShowDial(){
     CloseUpSettings();
 
+    // Si aucun appel actif, revenir à l'affichage de gauche pour rendre le dialpad visible
+    try{
+        if(countSessions("0") == 0){
+            selectedBuddy = null;
+            selectedLine = null;
+            UpdateUI();
+        }
+    }catch(e){}
+
     $("#myContacts").hide();
     $("#searchArea").hide();
     $("#actionArea").empty();
@@ -9478,7 +9492,7 @@ function ShowContacts(){
     $("#actionArea").hide();
     $("#actionArea").empty();
 
-    $("#myContacts").show();
+    $("#myContacts").hide();
     // Zone de recherche masquée
     // $("#searchArea").show();
 }
@@ -10608,12 +10622,12 @@ function UpdateBuddyList(){
 
     $("#myContacts").empty();
     
-    // Masquer le dialpad et afficher la liste des lignes
-    $("#actionArea").hide();
-    $("#myContacts").show();
+    // Ne jamais afficher myContacts
+    $("#myContacts").hide();
 
     // Show Lines
     var callCount = 0
+    var linesHtml = "";
     for(var l = 0; l < Lines.length; l++) {
 
         var classStr = (Lines[l].IsSelected)? "buddySelected" : "buddy";
@@ -10630,9 +10644,14 @@ function UpdateBuddyList(){
         html += "</div>";
         // SIP.Session.C.STATUS_TERMINATED
         if(Lines[l].SipSession && Lines[l].SipSession.data.earlyReject != true){
-            $("#myContacts").append(html);
+            linesHtml += html;
             callCount ++;
         }
+    }
+
+    // Afficher la gestion des lignes en cours dans actionArea
+    if(callCount > 0){
+        $("#actionArea").empty().append(linesHtml).show();
     }
 
     // End here if they are not using the buddy system
@@ -10977,16 +10996,19 @@ function AddBuddyMessageStream(buddyObj) {
         textRow += "</td></tr>";
     }
 
-    var html = "<table id=\"stream-"+ buddyObj.identity +"\" class=stream cellspacing=0 cellpadding=0>";
+/*JPR    var html = "<table id=\"stream-"+ buddyObj.identity +"\" class=stream cellspacing=0 cellpadding=0>";
     if(UiMessageLayout == "top"){
         html += messagesRow;
         html += profileRow;
     } else {
         html += profileRow;
         html += messagesRow;
-    }
-    html += textRow;
+    } 
+    html += textRow;  
     html += "</table>";
+    */
+    var html = "";
+ 
 
     $("#rightContent").append(html);
     if(UiMessageLayout == "top"){
