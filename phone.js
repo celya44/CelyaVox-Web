@@ -211,6 +211,7 @@ let SpeakerDevices = [];
 let Lines = [];
 let lang = {}
 let audioBlobs = {}
+let dtmfAudioContext = null;
 let newLineNumber = 1;
 let telNumericRegEx = /[^\d\*\#\+]/g
 let telAlphanumericRegEx = /[^\da-zA-Z\*\#\+\-\_\.\!\~\'\(\)]/g
@@ -8558,6 +8559,61 @@ function endSession(lineNum) {
 
     updateLineScroll(lineNum);
 }
+function getDtmfFrequencies(symbol){
+    var map = {
+        "1": [697, 1209], "2": [697, 1336], "3": [697, 1477], "A": [697, 1633],
+        "4": [770, 1209], "5": [770, 1336], "6": [770, 1477], "B": [770, 1633],
+        "7": [852, 1209], "8": [852, 1336], "9": [852, 1477], "C": [852, 1633],
+        "*": [941, 1209], "0": [941, 1336], "#": [941, 1477], "D": [941, 1633]
+    };
+    if(symbol === undefined || symbol === null) return null;
+    var key = (symbol + "").toUpperCase().trim();
+    if(key.length !== 1) key = key.charAt(0);
+    return map[key] || null;
+}
+function playLocalDtmfTone(symbol, durationMs){
+    var freqs = getDtmfFrequencies(symbol);
+    if(!freqs) return;
+    try{
+        if(!dtmfAudioContext) dtmfAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if(dtmfAudioContext.state === "suspended") dtmfAudioContext.resume();
+
+        var duration = Math.max(60, parseInt(durationMs || 120, 10));
+        if(isNaN(duration)) duration = 120;
+        var now = dtmfAudioContext.currentTime;
+        var durSec = duration / 1000;
+
+        var gain = dtmfAudioContext.createGain();
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.12, now + 0.02);
+        gain.gain.setValueAtTime(0.12, Math.max(now + 0.02, now + durSec - 0.03));
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + durSec);
+
+        var osc1 = dtmfAudioContext.createOscillator();
+        var osc2 = dtmfAudioContext.createOscillator();
+        osc1.type = "sine";
+        osc2.type = "sine";
+        osc1.frequency.setValueAtTime(freqs[0], now);
+        osc2.frequency.setValueAtTime(freqs[1], now);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(dtmfAudioContext.destination);
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + durSec);
+        osc2.stop(now + durSec);
+
+        osc1.onended = function(){
+            try{
+                osc1.disconnect();
+                osc2.disconnect();
+                gain.disconnect();
+            } catch(e){}
+        };
+    } catch(e){}
+}
 // Helper: check if RTP DTMF can be inserted on a given session
 function canInsertRtpDtmf(session){
     try{
@@ -8604,6 +8660,7 @@ function sendDTMF(lineNum, itemStr) {
         duration: 100,
         interToneGap: 70
     }
+    playLocalDtmfTone(itemStr, options.duration);
     
     if(lineObj.SipSession.isOnHold == true){
         if(lineObj.SipSession.data.childsession){
@@ -9365,6 +9422,9 @@ function dialOnkeydown(event, obj, buddy) {
     }
 }
 function KeyPress(num){
+    if(num !== "del"){
+        playLocalDtmfTone(num, 120);
+    }
     var currVal = $("#dialText").val();
     var textElObj = $("#dialText").get(0);
     var ss = textElObj.selectionStart;
