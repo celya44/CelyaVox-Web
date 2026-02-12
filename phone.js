@@ -3545,6 +3545,7 @@ function onInviteAccepted(lineObj, includeVideo, response){
     // Start Audio Monitoring
     lineObj.LocalSoundMeter = StartLocalAudioMediaMonitoring(lineObj.LineNumber, session);
     lineObj.RemoteSoundMeter = StartRemoteAudioMediaMonitoring(lineObj.LineNumber, session);
+    attachAudioSenderTrackHandlers(lineObj, "invite-accepted");
 
     $("#line-" + lineObj.LineNumber + "-msg").html(lang.call_in_progress);
 
@@ -4042,6 +4043,99 @@ function teardownSession(lineObj) {
 
 // Mic and Speaker Levels
 // ======================
+function recoverAudioSenderTrack(lineObj, reason){
+    if(!navigator.mediaDevices) return;
+    if(lineObj == null || lineObj.SipSession == null) return;
+
+    var session = lineObj.SipSession;
+    if(session.isOnHold === true) return;
+    if(!session.sessionDescriptionHandler || !session.sessionDescriptionHandler.peerConnection) return;
+
+    var pc = session.sessionDescriptionHandler.peerConnection;
+    var audioSender = null;
+    pc.getSenders().forEach(function(sender){
+        if(sender.track && sender.track.kind == "audio") audioSender = sender;
+    });
+    if(audioSender == null) return;
+    if(audioSender.track && audioSender.track.IsMixedTrack == true) return;
+
+    var track = audioSender.track;
+    if(track && track.readyState == "live" && track.muted === false && track.enabled === false && !session.data.ismute){
+        track.enabled = true;
+        return;
+    }
+
+    var shouldRecover = (!track || track.readyState == "ended" || track.muted === true);
+    if(!shouldRecover) return;
+
+    var now = Date.now();
+    if(session.data.lastAudioRecovery && (now - session.data.lastAudioRecovery) < 3000) return;
+    session.data.lastAudioRecovery = now;
+
+    console.warn("Recovering audio track:", reason);
+
+    var deviceId = session.data.AudioSourceDevice || getAudioSrcID();
+    var constraints = {
+        audio: { deviceId: "default" },
+        video: false
+    };
+    if(deviceId && deviceId != "default") {
+        constraints.audio.deviceId = { exact: deviceId };
+    }
+
+    var supportedConstraints = navigator.mediaDevices.getSupportedConstraints ? navigator.mediaDevices.getSupportedConstraints() : {};
+    if(supportedConstraints.autoGainControl) constraints.audio.autoGainControl = AutoGainControl;
+    if(supportedConstraints.echoCancellation) constraints.audio.echoCancellation = EchoCancellation;
+    if(supportedConstraints.noiseSuppression) constraints.audio.noiseSuppression = NoiseSuppression;
+
+    navigator.mediaDevices.getUserMedia(constraints).then(function(newStream){
+        var newTrack = newStream.getAudioTracks()[0];
+        if(!newTrack) return;
+
+        audioSender.replaceTrack(newTrack).then(function(){
+            if(track) track.stop();
+            if(session.data.ismute) newTrack.enabled = false;
+            attachAudioSenderTrackHandlers(lineObj, "recovered");
+
+            if(lineObj.LocalSoundMeter) lineObj.LocalSoundMeter.stop();
+            lineObj.LocalSoundMeter = StartLocalAudioMediaMonitoring(lineObj.LineNumber, session);
+        }).catch(function(e){
+            console.error("Failed to replace audio track:", e);
+        });
+    }).catch(function(e){
+        console.warn("Failed to recover audio track:", e);
+    });
+}
+
+function attachAudioSenderTrackHandlers(lineObj, reason){
+    if(lineObj == null || lineObj.SipSession == null) return;
+    var session = lineObj.SipSession;
+    if(!session.sessionDescriptionHandler || !session.sessionDescriptionHandler.peerConnection) return;
+
+    var pc = session.sessionDescriptionHandler.peerConnection;
+    pc.getSenders().forEach(function(sender){
+        if(!sender.track || sender.track.kind != "audio") return;
+        if(sender.track.__celyaRecoveryBound === true) return;
+
+        sender.track.__celyaRecoveryBound = true;
+        sender.track.onended = function(){
+            recoverAudioSenderTrack(lineObj, "track-ended" + (reason ? ":" + reason : ""));
+        };
+        sender.track.onmute = function(){
+            recoverAudioSenderTrack(lineObj, "track-muted" + (reason ? ":" + reason : ""));
+        };
+    });
+}
+
+function recoverAudioForActiveCalls(reason){
+    if(!Array.isArray(Lines)) return;
+    Lines.forEach(function(lineObj){
+        if(lineObj && lineObj.SipSession && lineObj.SipSession.data && lineObj.SipSession.data.started){
+            recoverAudioSenderTrack(lineObj, reason || "active-call");
+        }
+    });
+}
+
 function StartRemoteAudioMediaMonitoring(lineNum, session) {
     console.log("Creating RemoteAudio AudioContext on Line:" + lineNum);
 
@@ -7240,7 +7334,16 @@ function QuickFindBuddy(obj, lineNum){
                         HidePopup();
                         obj.value = number;
                         if(lineNum){
-                            AttendedTransfer(lineNum);
+                            try{
+                                var $conf = $("#line-"+ lineNum +"-Conference");
+                                if($conf.length && $conf.is(":visible")){
+                                    ConferenceDial(lineNum);
+                                } else {
+                                    AttendedTransfer(lineNum);
+                                }
+                            }catch(e){
+                                AttendedTransfer(lineNum);
+                            }
                         }
                     }
                 },
@@ -14038,6 +14141,7 @@ function ChangeSettings(lineNum, obj){
                                     if(mustRestartRecording) StartRecording(lineNum);
                                     // Monitor Adio Stream
                                     lineObj.LocalSoundMeter = StartLocalAudioMediaMonitoring(lineNum, session);
+                                    attachAudioSenderTrackHandlers(lineObj, "mic-change");
                                 }).catch(function(e){
                                     console.error("Error replacing track: ", e);
                                 });
@@ -15449,6 +15553,25 @@ DetectDevices();
 window.setInterval(function(){
     DetectDevices();
 }, 10000);
+
+window.setInterval(function(){
+    if(countSessions("0") > 0){
+        recoverAudioForActiveCalls("watchdog");
+    }
+}, 5000);
+
+if(navigator.mediaDevices && typeof navigator.mediaDevices.addEventListener === "function"){
+    navigator.mediaDevices.addEventListener("devicechange", function(){
+        DetectDevices();
+        recoverAudioForActiveCalls("devicechange");
+    });
+}
+
+document.addEventListener("visibilitychange", function(){
+    if(document.visibilityState === "visible"){
+        recoverAudioForActiveCalls("visibility");
+    }
+});
 
 // =================================================================================
 

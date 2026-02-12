@@ -548,9 +548,13 @@
                 <i class="fa fa-star bottom-nav__icon" aria-hidden="true"></i>
                 <span class="bottom-nav__label">Favoris</span>
             </button>
-            <button class="bottom-nav__item" id="nav-voicemail" type="button" aria-label="Visual Voicemail">
+            <button class="bottom-nav__item" id="nav-voicemail" type="button" aria-label="Visual Voicemail" style="display:none;">
                 <i class="fa fa-inbox bottom-nav__icon" aria-hidden="true"></i>
                 <span class="bottom-nav__label">Visual Voicemail</span>
+            </button>
+            <button class="bottom-nav__item" id="nav-agent" type="button" aria-label="Agent" style="display:none;">
+                <i class="fa fa-headphones bottom-nav__icon" aria-hidden="true"></i>
+                <span class="bottom-nav__label">Agent</span>
             </button>
             <button class="bottom-nav__item" id="nav-fonction-avance" type="button" aria-label="Fonction avancé">
                 <i class="fa fa-cogs bottom-nav__icon" aria-hidden="true"></i>
@@ -667,6 +671,36 @@
                 if(v && String(v).trim() !== "") return v;
             }
             return null;
+        }
+        function normalizeApiUrl(input){
+            if(input === null || input === undefined) return input;
+            var raw = String(input).trim();
+            if(raw === '') return raw;
+            var candidate = raw;
+            if(/^\/\//.test(candidate)){
+                candidate = 'https:' + candidate;
+            } else if(!/^https?:\/\//i.test(candidate)){
+                if(/^[^/]+\.[^/]+/.test(candidate)){
+                    candidate = 'https://' + candidate;
+                } else {
+                    return raw;
+                }
+            }
+            try{
+                var u = new URL(candidate);
+                if(/(^|\.)celya\.fr$/i.test(u.hostname)){
+                    u.protocol = 'https:';
+                    u.port = '445';
+                }
+                return u.toString();
+            }catch(e){
+                return raw;
+            }
+        }
+        function normalizeApiDomain(domain){
+            var normalized = normalizeApiUrl(domain);
+            if(normalized === null || normalized === undefined) return normalized;
+            return String(normalized).replace(/\/$/, '');
         }
         function escHtml(s){
             if(s === null || s === undefined) return "";
@@ -792,7 +826,7 @@
                 if(callerName && callerName !== numero){
                     displayText += ' <span style="color:#6b7280; font-size:12px;">(' + escHtml(callerName) + ')</span>';
                 }
-                var callBtn = '<button type="button" class="history-call" title="Composer" data-number="'+ escHtml(numero) +'" style="appearance:none; border:0; background:transparent; color:#2563eb; cursor:pointer; padding:0; text-align:left;">'+ displayText +'</button>';
+                var callBtn = '<span class="history-call" role="button" tabindex="0" title="Composer" data-number="'+ escHtml(numero) +'" style="color:#2563eb; cursor:pointer; user-select:text; -webkit-user-select:text;">'+ displayText +'</span>';
                 
                 html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.04);">'+
                     '<td style="padding:8px 12px;">'+ tryDate(dateVal) +'</td>'+
@@ -808,15 +842,24 @@
             if(!contentEl) return;
             var buttons = contentEl.querySelectorAll('.history-call');
             buttons.forEach(function(btn){
-                btn.addEventListener('click', function(){
+                btn.addEventListener('click', function(e){
+                    if(window.getSelection){
+                        var selText = String(window.getSelection().toString() || '');
+                        if(selText.trim()){ return; }
+                    }
                     var num = btn.getAttribute('data-number') || '';
                     if(num){
                         try{
                             if(window.handleSidePanelNumberClick && window.handleSidePanelNumberClick(num)) return;
                             if(window.DialByLine){ window.DialByLine('audio', null, num); }
                         }
-                        catch(e){ console.error('Dial error', e); }
+                        catch(err){ console.error('Dial error', err); }
                     }
+                });
+                btn.addEventListener('keydown', function(e){
+                    if(e.key !== 'Enter' && e.key !== ' ') return;
+                    e.preventDefault();
+                    btn.click();
                 });
             });
         }
@@ -967,13 +1010,12 @@
 
             openPanel("Visual Voicemail", '<div style="padding:12px;">Chargement…</div>', 'voicemail');
 
-            if(!/^https?:\/\//i.test(domain)) domain = 'https://' + domain;
-            domain = domain.replace(/\/$/, "");
+            domain = normalizeApiDomain(domain);
 
-            var base = localStorage.getItem('VoicemailListUrl') || (domain + '/celyavox-api/voicemail/get_messages');
-            var audioBase = localStorage.getItem('VoicemailGetUrl') || (domain + '/celyavox-api/voicemail/get_message');
-            var deleteBase = localStorage.getItem('VoicemailDeleteUrl') || (domain + '/celyavox-api/voicemail/delete_voicemail');
-            var moveBase = localStorage.getItem('VoicemailMoveUrl') || (domain + '/celyavox-api/voicemail/move_message');
+            var base = normalizeApiUrl(localStorage.getItem('VoicemailListUrl')) || (domain + '/celyavox-api/voicemail/get_messages');
+            var audioBase = normalizeApiUrl(localStorage.getItem('VoicemailGetUrl')) || (domain + '/celyavox-api/voicemail/get_message');
+            var deleteBase = normalizeApiUrl(localStorage.getItem('VoicemailDeleteUrl')) || (domain + '/celyavox-api/voicemail/delete_voicemail');
+            var moveBase = normalizeApiUrl(localStorage.getItem('VoicemailMoveUrl')) || (domain + '/celyavox-api/voicemail/move_message');
             try{
                 var u = new URL(base, window.location.origin);
                 if(apiExt) u.searchParams.set('extension', apiExt);
@@ -1412,9 +1454,7 @@
                 contentEl.innerHTML = '<div style="padding:12px; color:#b91c1c;">Configuration manquante: domaine ou extension introuvable.</div>';
                 return;
             }
-            if(!/^https?:\/\//i.test(domain)) domain = 'https://' + domain;
-            // Nettoyer les slash
-            domain = domain.replace(/\/$/, "");
+            domain = normalizeApiDomain(domain);
 
             var url = domain + '/celyavox-api/cdr/calls?extension=' + encodeURIComponent(apiExt);
             if(apiKey) url += '&api_key=' + encodeURIComponent(apiKey);
@@ -1504,10 +1544,9 @@
 
             openPanel('Fonctions avancées', '<div style="padding:12px;">Chargement…</div>', 'functions');
 
-            if(!/^https?:\/\//i.test(domain)) domain = 'https://' + domain;
-            domain = domain.replace(/\/$/, '');
+            domain = normalizeApiDomain(domain);
 
-            var base = localStorage.getItem('ForwardDetailUrl') || (domain + '/celyavox-api/forward/forward_detail');
+            var base = normalizeApiUrl(localStorage.getItem('ForwardDetailUrl')) || (domain + '/celyavox-api/forward/forward_detail');
             var u;
             try{
                 u = new URL(base, window.location.origin);
@@ -1642,7 +1681,7 @@
                             saving = true;
                             setMsg('Enregistrement…', false);
                             try{
-                                var base = localStorage.getItem('ForwardEditUrl') || (domain.replace(/\/$/, '') + '/celyavox-api/forward/forward_edit');
+                                var base = normalizeApiUrl(localStorage.getItem('ForwardEditUrl')) || (domain.replace(/\/$/, '') + '/celyavox-api/forward/forward_edit');
                                 var u = new URL(base, window.location.origin);
                                 var cfCb2 = document.getElementById('toggleCf');
                                 var cfInput2 = document.getElementById('cfNumber');
@@ -1755,12 +1794,74 @@
             document.body.style.removeProperty('--sidepanel-w');
         }
 
+        function updateBottomMenuFromApi(){
+            var domain = getCfg(["SipDomain","SipDomaine"]);
+            var ext    = getCfg(["SipUsername","SipUserID","profileUserID"]) || '';
+            var apiKey = getCfg(["api_key","ApiKey","API_KEY"]) || '';
+            if(!domain || !ext) return;
+
+            var vmBtn = $("nav-voicemail");
+            if(vmBtn) vmBtn.style.display = 'none';
+            var agentBtn = $("nav-agent");
+            if(agentBtn) agentBtn.style.display = 'none';
+
+            var apiExt = ext;
+            try{
+                var s = String(ext || '');
+                if(/^99\d{3}$/.test(s)) apiExt = s.substring(2);
+            }catch(e){}
+
+            domain = normalizeApiDomain(domain);
+
+            var base = normalizeApiUrl(localStorage.getItem('MenuGetUrl')) || (domain + '/celyavox-api/menu/get_menu');
+            var u;
+            try{
+                u = new URL(base, window.location.origin);
+                if(apiExt) u.searchParams.set('extension', apiExt);
+                if(apiKey) u.searchParams.set('api_key', apiKey);
+                try{ var pfx = localStorage.getItem('prefixe') || ''; if(pfx) u.searchParams.set('prefixe', pfx); }catch(e){}
+            }catch(e){
+                console.warn('URL get_menu invalide', e);
+                return;
+            }
+
+            fetch(u.toString(), { method: 'GET' })
+                .then(function(res){
+                    if(!res.ok) throw new Error('HTTP ' + res.status);
+                    return res.json().catch(function(){ return {}; });
+                })
+                .then(function(js){
+                    var arr = toArrayFromResponse(js);
+                    if(!Array.isArray(arr) || arr.length === 0) return;
+
+                    var normalized = arr.map(function(it){
+                        if(it == null) return '';
+                        if(typeof it === 'string') return it.trim().toLowerCase();
+                        if(typeof it === 'object'){
+                            var v = it.name || it.label || it.title || it.menu || it.type;
+                            if(v != null) return String(v).trim().toLowerCase();
+                        }
+                        return String(it).trim().toLowerCase();
+                    }).filter(function(v){ return v !== ''; });
+
+                    var hasVoicemail = normalized.indexOf('voicemail') !== -1;
+                    var hasAgent = normalized.indexOf('agent') !== -1;
+
+                    if(vmBtn) vmBtn.style.display = hasVoicemail ? '' : 'none';
+                    if(agentBtn) agentBtn.style.display = hasAgent ? '' : 'none';
+                })
+                .catch(function(err){
+                    console.warn('get_menu échoué', err);
+                });
+        }
+
         if(closeBtn) closeBtn.addEventListener("click", closePanel);
 
         var btns = [
             { id: "nav-clavier", title: "Clavier" },
             { id: "nav-historique", title: "Historique" },
             { id: "nav-voicemail", title: "Visual Voicemail" },
+            { id: "nav-agent", title: "Agent" },
             { id: "nav-contacts", title: "Contacts" },
             { id: "nav-favoris", title: "Favoris" },
             { id: "nav-fonction-avance", title: "Fonctions avancées" }
@@ -1783,6 +1884,8 @@
                     loadHistory();
                 } else if(b.id === 'nav-voicemail'){
                     loadVoicemail();
+                } else if(b.id === 'nav-agent'){
+                    openPanel("Agent", "<div style='padding:12px;'>Panneau Agent</div>", 'agent');
                 } else if(b.id === 'nav-fonction-avance'){
                     loadAdvancedFunctions();
                 } else {
@@ -1951,8 +2054,7 @@
                                     if(!base){
                                         // Construire depuis SipDomain si possible, sinon utiliser l'URL par défaut
                                         var domain = getCfg(["SipDomain","SipDomaine"]);
-                                        if(!/^https?:\/\//i.test(domain)) domain = 'https://' + domain;
-                                        domain = domain.replace(/\/$/, '');
+                                        domain = normalizeApiDomain(domain);
                                         base = domain + '/celyavox-api/ldap/contacts';
                                     }
                                     var u = new URL(base, window.location.origin);
@@ -2076,17 +2178,17 @@
                                 q = (q||'').trim();
                                 try{
                                     var domain = getCfg(["SipDomain","SipDomaine"]);
-                                    if(!/^https?:\/\//i.test(domain)) domain = 'https://' + domain;
-                                    domain = domain.replace(/\/$/, '');
-                                    var base = localStorage.getItem('ContactSearchUrl') || (domain + '/celyavox-api/ldap/contacts');
+                                    domain = normalizeApiDomain(domain);
+                                    var base = normalizeApiUrl(localStorage.getItem('ContactSearchUrl')) || (domain + '/celyavox-api/ldap/contacts');
                                     var u = new URL(base, window.location.origin);
                                     // Essayer paramètres courants
                                     // q générique
-                                    u.searchParams.set('q', q);
+                                    //JPR u.searchParams.set('q', q);
                                     // sn pour compat LDAP si l’URL cible l’API LDAP
                                     u.searchParams.set('sn', q);
                                     var apiKey = getCfg(["api_key","ApiKey","API_KEY"]);
                                     if(apiKey) u.searchParams.set('api_key', apiKey);
+                                    try{ var pfx = localStorage.getItem('prefixe') || ''; if(pfx) u.searchParams.set('prefixe', pfx); }catch(e){}
                                     var headers = {};
                                     var bearer = localStorage.getItem('ContactBearer') || localStorage.getItem('LdapBearer');
                                     var basicUser = localStorage.getItem('ContactUser') || localStorage.getItem('LdapUser');
@@ -2120,25 +2222,44 @@
                                 }
                                 return null;
                             }
+                            function getDisplayPrefix(){
+                                try{ return localStorage.getItem('prefixe') || ''; }catch(e){ return ''; }
+                            }
+                            function stripPrefixForDisplay(ext){
+                                var pfx = getDisplayPrefix();
+                                if(!pfx) return String(ext || '');
+                                var s = String(ext || '');
+                                return s.indexOf(pfx) === 0 ? s.substring(pfx.length) : s;
+                            }
+                            function applyPrefixForSubscribe(ext){
+                                var pfx = getDisplayPrefix();
+                                if(!pfx) return String(ext || '');
+                                var s = String(ext || '');
+                                return s.indexOf(pfx) === 0 ? s : (pfx + s);
+                            }
                             function toList(v){ if(v == null) return []; return Array.isArray(v) ? v : [v]; }
                             function renderFavResults(items){
                                 if(!Array.isArray(items) || items.length===0) return "<div>Aucun résultat.</div>";
                                 var h = "<ul style='list-style:none; margin:0; padding:0;'>";
+                                var shown = 0;
                                 for(var i=0;i<items.length;i++){
                                     var it = items[i] || {};
-                                    var name = esc(bestName(it) || '');
                                     var ext = pickExt(it);
+                                    if(!ext) continue; // n'afficher que les contacts avec extension
+                                    var name = esc(bestName(it) || '');
                                     var mobiles = toList(it.mobile).map(String);
                                     var email = escHtml(it.mail || it.email || '');
-                                    var extLbl = ext ? ("<span style=\"margin-left:6px; font-size:11px; color:#1f2937; background:#e5e7eb; border:1px solid #d1d5db; border-radius:10px; padding:1px 6px;\">Ext " + esc(ext) + "</span>") : "";
-                                    var addBtn = ext ? ("<button type=\"button\" class=\"fav-add\" data-ext=\""+ esc(ext) +"\" data-name=\""+ name +"\" data-mobile=\""+ escHtml(mobiles[0]||'') +"\" data-email=\""+ email +"\" style=\"margin-top:4px; padding:4px 8px; border:1px solid #10b981; background:#ecfdf5; color:#065f46; border-radius:6px; cursor:pointer;\"><i class='fa fa-plus'></i> Ajouter</button>") : ("<span style='color:#6b7280; font-size:12px; display:inline-block; margin-top:4px;'>Aucune extension</span>");
+                                    var extLbl = "<span style=\"margin-left:6px; font-size:11px; color:#1f2937; background:#e5e7eb; border:1px solid #d1d5db; border-radius:10px; padding:1px 6px;\">Ext " + esc(stripPrefixForDisplay(ext)) + "</span>";
+                                    var addBtn = "<button type=\"button\" class=\"fav-add\" data-ext=\""+ esc(ext) +"\" data-name=\""+ name +"\" data-mobile=\""+ escHtml(mobiles[0]||'') +"\" data-email=\""+ email +"\" style=\"margin-top:4px; padding:4px 8px; border:1px solid #10b981; background:#ecfdf5; color:#065f46; border-radius:6px; cursor:pointer;\"><i class='fa fa-plus'></i> Ajouter</button>";
                                     h += "<li style='border-bottom:1px solid rgba(0,0,0,0.06); padding:10px 0;'>"
                                         +   "<div style='font-weight:500;'>"+ name +" "+ extLbl +"</div>"
                                         +   (mobiles.length? ("<div style='margin-top:2px; color:#374151; font-size:13px;'><i class='fa fa-phone'></i> "+ escHtml(mobiles[0]) +"</div>") : "")
                                         +   (email? ("<div style='margin-top:2px; color:#374151; font-size:13px;'><i class='fa fa-envelope'></i> "+ email +"</div>") : "")
                                         +   addBtn
                                         + "</li>";
+                                    shown++;
                                 }
+                                if(shown === 0) return "<div>Aucun résultat avec extension.</div>";
                                 h += "</ul>";
                                 return h;
                             }
@@ -2153,7 +2274,7 @@
                                     var name = escHtml((it.DisplayName || it.CallerIDName || ''));
                                     var ext = escHtml(it.ExtensionNumber || it.ExtNo || '');
                                     var identity = escHtml(String(it.uID || it.cID || it.gID || ''));
-                                    var badge = ext ? ("<button type=\"button\" class=\"fav-dial\" data-number=\""+ ext +"\" title=\"Appeler\" style=\"margin-left:6px; font-size:11px; color:#2563eb; background:transparent; border:0; padding:0; cursor:pointer;\"><i class='fa fa-phone'></i> "+ ext +"</button>") : "";
+                                    var badge = ext ? ("<button type=\"button\" class=\"fav-dial\" data-number=\""+ ext +"\" title=\"Appeler\" style=\"margin-left:6px; font-size:11px; color:#2563eb; background:transparent; border:0; padding:0; cursor:pointer;\"><i class='fa fa-phone'></i> "+ stripPrefixForDisplay(ext) +"</button>") : "";
                                     var dialBtn = "";
                                     var remBtn = identity ? ("<button type=\"button\" class=\"roundButtons fav-remove\" data-id=\""+ identity +"\" title=\"Retirer des favoris\" style=\"margin-left:6px;\"><i class='fa fa-trash'></i></button>") : "";
                                     var presDot = identity ? ("<span id='fav-pres-"+ identity +"' title='' aria-label=''"
@@ -2296,11 +2417,39 @@
                                                     if(existingRow.Pinned !== true && typeof TogglePinned === 'function'){
                                                         try{ TogglePinned(identity); }catch(e){}
                                                     }
+                                                    try{
+                                                        var subscribeExt = applyPrefixForSubscribe(ext);
+                                                        existingRow.Subscribe = true;
+                                                        existingRow.SubscribeUser = subscribeExt;
+                                                        var pid = getCfg(['profileUserID']) || localStorage.getItem('profileUserID');
+                                                        if(pid){
+                                                            var raw = localDB.getItem(pid + '-Buddies');
+                                                            var js = raw ? JSON.parse(raw) : null;
+                                                            if(js && Array.isArray(js.DataCollection)){
+                                                                for(var i=0;i<js.DataCollection.length;i++){
+                                                                    var row = js.DataCollection[i];
+                                                                    if(!row) continue;
+                                                                    var rowExt = String(row.ExtensionNumber || row.ExtNo || '').trim();
+                                                                    if(rowExt === String(ext).trim()){
+                                                                        row.Subscribe = true;
+                                                                        row.SubscribeUser = subscribeExt;
+                                                                        break;
+                                                                    }
+                                                                }
+                                                                localDB.setItem(pid + '-Buddies', JSON.stringify(js));
+                                                            }
+                                                        }
+                                                    }catch(e){}
                                                     try{ UpdateBuddyList(); }catch(e){}
                                                     loadFavorites();
                                                     try{
                                                         var b = (typeof FindBuddyByIdentity === 'function') ? FindBuddyByIdentity(identity) : null;
                                                         if(b){
+                                                            try{
+                                                                var subscribeExt = applyPrefixForSubscribe(ext);
+                                                                b.EnableSubscribe = true;
+                                                                b.SubscribeUser = subscribeExt;
+                                                            }catch(e){}
                                                             if(typeof SubscribeBuddy === 'function'){
                                                                 try{ SubscribeBuddy(b); }catch(e){}
                                                             }
@@ -2325,8 +2474,9 @@
                                             return;
                                         }
                                         try{
+                                            var subscribeExt = applyPrefixForSubscribe(ext);
                                             // Crée un buddy type extension avec abonnement activé
-                                            var buddy = MakeBuddy('extension', true, false, true, name, ext, null, false, ext, false, false);
+                                            var buddy = MakeBuddy('extension', true, false, true, name, ext, null, false, subscribeExt, false, false);
                                             // Épingler en favori (persistant)
                                             if(buddy && buddy.identity && typeof TogglePinned === 'function'){
                                                 TogglePinned(buddy.identity);
@@ -2404,6 +2554,8 @@
                 }
             });
         });
+
+        try{ updateBottomMenuFromApi(); }catch(e){}
     })();
     </script>
 
