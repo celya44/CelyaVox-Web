@@ -254,6 +254,19 @@ function getRingerOutputID(){
     var id = localDB.getItem("RingOutputId");
     return (id != null)? id : "default";
 }
+function clampGain(value, fallback){
+    var v = parseFloat(value);
+    if(!isFinite(v)) v = (fallback != null)? fallback : 1;
+    if(v < 0) v = 0;
+    if(v > 1) v = 1;
+    return v;
+}
+function getSpeakerGain(){
+    return clampGain(localDB.getItem("SpeakerGain"), 1);
+}
+function getRingerGain(){
+    return clampGain(localDB.getItem("RingerGain"), 1);
+}
 function formatDuration(seconds){
     var sec = Math.floor(parseFloat(seconds));
     if(sec < 0){
@@ -3122,6 +3135,7 @@ function ReceiveCall(session) {
             // Play Alert
             console.log("Audio:", audioBlobs.CallWaiting.url);
             var ringer = new Audio(audioBlobs.CallWaiting.blob);
+            ringer.volume = getRingerGain();
             ringer.preload = "auto";
             ringer.loop = false;
             ringer.oncanplaythrough = function(e) {
@@ -3144,6 +3158,7 @@ function ReceiveCall(session) {
             // Play Ring Tone
             console.log("Audio:", audioBlobs.Ringtone.url);
             var ringer = new Audio(audioBlobs.Ringtone.blob);
+            ringer.volume = getRingerGain();
             ringer.preload = "auto";
             ringer.loop = true;
             ringer.oncanplaythrough = function(e) {
@@ -3638,6 +3653,7 @@ function onInviteProgress(lineObj, response){
         }
         else {
             var earlyMedia = new Audio(soundFile.blob);
+            earlyMedia.volume = getSpeakerGain();
             earlyMedia.preload = "auto";
             earlyMedia.loop = true;
             earlyMedia.oncanplaythrough = function(e) {
@@ -3902,6 +3918,7 @@ function onTrackAddedEvent(lineObj, includeVideo){
     if(remoteAudioStream.getAudioTracks().length >= 1){
         var remoteAudio = $("#line-" + lineObj.LineNumber + "-remoteAudio").get(0);
         remoteAudio.srcObject = remoteAudioStream;
+        remoteAudio.volume = getSpeakerGain();
         remoteAudio.onloadedmetadata = function(e) {
             if (typeof remoteAudio.sinkId !== 'undefined') {
                 remoteAudio.setSinkId(getAudioOutputID()).then(function(){
@@ -6008,6 +6025,7 @@ function ActivateStream(buddyObj, message){
         // Play Alert
         console.log("Audio:", audioBlobs.Alert.url);
         var ringer = new Audio(audioBlobs.Alert.blob);
+        ringer.volume = getRingerGain();
         ringer.preload = "auto";
         ringer.loop = false;
         ringer.oncanplaythrough = function(e) {
@@ -7094,6 +7112,7 @@ function PlayAudioCallRecording(obj, cdrId, uID){
     var audioObj = new Audio();
     audioObj.autoplay = false;
     audioObj.controls = true;
+    audioObj.volume = getSpeakerGain();
 
     // Make sure you are playing out via the correct device
     var sinkId = getAudioOutputID();
@@ -7143,6 +7162,7 @@ function PlayVideoCallRecording(obj, cdrId, uID, buddy){
     videoObj.autoplay = false;
     videoObj.controls = true;
     videoObj.playsinline = true;
+    videoObj.volume = getSpeakerGain();
     videoObj.ontimeupdate = function(event){
         $("#cdr-video-meta-width-"+ cdrId +"-"+ uID).html(lang.width + " : "+ event.target.videoWidth +"px");
         $("#cdr-video-meta-height-"+ cdrId +"-"+ uID).html(lang.height +" : "+ event.target.videoHeight +"px");
@@ -12972,12 +12992,16 @@ function ShowMyProfile(){
     AudioVideoHtml += "<div class=UiText>"+ lang.speaker +":</div>";
     AudioVideoHtml += "<div style=\"text-align:center\"><select id=playbackSrc style=\"width:100%\"></select></div>";
     AudioVideoHtml += "<div class=Settings_VolumeOutput_Container><div id=Settings_SpeakerOutput class=Settings_VolumeOutput></div></div>";
+    AudioVideoHtml += "<div class=UiText>"+ (lang.speaker_gain || "Speaker Gain") +":</div>";
+    AudioVideoHtml += "<div class=Settings_GainRow><input id=Settings_SpeakerGain type=range min=0 max=100 step=1><span id=Settings_SpeakerGainValue class=Settings_GainValue></span></div>";
     AudioVideoHtml += "<div><button class=roundButtons id=preview_output_play><i class=\"fa fa-play\"></i></button></div>";
 
     AudioVideoHtml += "<div id=RingDeviceSection>";
     AudioVideoHtml += "<div class=UiText>"+ lang.ring_device +":</div>";
     AudioVideoHtml += "<div style=\"text-align:center\"><select id=ringDevice style=\"width:100%\"></select></div>";
     AudioVideoHtml += "<div class=Settings_VolumeOutput_Container><div id=Settings_RingerOutput class=Settings_VolumeOutput></div></div>";
+    AudioVideoHtml += "<div class=UiText>"+ (lang.ringer_gain || "Ringer Gain") +":</div>";
+    AudioVideoHtml += "<div class=Settings_GainRow><input id=Settings_RingerGain type=range min=0 max=100 step=1><span id=Settings_RingerGainValue class=Settings_GainValue></span></div>";
     AudioVideoHtml += "<div><button class=roundButtons id=preview_ringer_play><i class=\"fa fa-play\"></i></button></div>";
     AudioVideoHtml += "</div>";
 
@@ -13197,6 +13221,12 @@ function ShowMyProfile(){
             localDB.setItem("EchoCancellation", ($("#Settings_EchoCancellation").is(':checked'))? "1" : "0");
             localDB.setItem("NoiseSuppression", ($("#Settings_NoiseSuppression").is(':checked'))? "1" : "0");
             localDB.setItem("RingOutputId", $("#ringDevice").val());
+            var speakerGainValue = parseInt($("#Settings_SpeakerGain").val(), 10);
+            var ringerGainValue = parseInt($("#Settings_RingerGain").val(), 10);
+            var speakerGain = clampGain(isNaN(speakerGainValue)? null : speakerGainValue / 100, 1);
+            var ringerGain = clampGain(isNaN(ringerGainValue)? null : ringerGainValue / 100, 1);
+            localDB.setItem("SpeakerGain", String(speakerGain));
+            localDB.setItem("RingerGain", String(ringerGain));
 
             if(EnableVideoCalling == true){
                 localDB.setItem("VideoSrcId", $("#previewVideoSrc").val());
@@ -13307,6 +13337,36 @@ function ShowMyProfile(){
             });
         }
 
+        var speakerGainInput = $("#Settings_SpeakerGain");
+        var speakerGainValue = $("#Settings_SpeakerGainValue");
+        var ringerGainInput = $("#Settings_RingerGain");
+        var ringerGainValue = $("#Settings_RingerGainValue");
+        function updateGainDisplay(input, valueEl, gain){
+            var pct = Math.round(clampGain(gain, 1) * 100);
+            input.val(pct);
+            valueEl.text(pct + "%");
+            return pct;
+        }
+        function readGainFromInput(input, fallback){
+            var pct = parseInt(input.val(), 10);
+            if(isNaN(pct)) pct = Math.round(fallback * 100);
+            if(pct < 0) pct = 0;
+            if(pct > 100) pct = 100;
+            return pct / 100;
+        }
+        updateGainDisplay(speakerGainInput, speakerGainValue, getSpeakerGain());
+        updateGainDisplay(ringerGainInput, ringerGainValue, getRingerGain());
+        speakerGainInput.on("input change", function(){
+            var gain = readGainFromInput(speakerGainInput, getSpeakerGain());
+            speakerGainValue.text(Math.round(gain * 100) + "%");
+            if(window.SettingsOutputAudio) window.SettingsOutputAudio.volume = gain;
+        });
+        ringerGainInput.on("input change", function(){
+            var gain = readGainFromInput(ringerGainInput, getRingerGain());
+            ringerGainValue.text(Math.round(gain * 100) + "%");
+            if(window.SettingsRingerAudio) window.SettingsRingerAudio.volume = gain;
+        });
+
         // Audio Preview
         var playButton = $("#preview_output_play");
         // Audio Preview Button press
@@ -13337,6 +13397,7 @@ function ShowMyProfile(){
             // Load Sample
             console.log("Audio:", audioBlobs.speech_orig.url);
             var audioObj = new Audio(audioBlobs.speech_orig.blob);
+            audioObj.volume = readGainFromInput(speakerGainInput, getSpeakerGain());
             audioObj.preload = "auto";
             audioObj.onplay = function(){
                 var outputStream = new MediaStream();
@@ -13410,6 +13471,7 @@ function ShowMyProfile(){
             // Load Sample
             console.log("Audio:", audioBlobs.Ringtone.url);
             var audioObj = new Audio(audioBlobs.Ringtone.blob);
+            audioObj.volume = readGainFromInput(ringerGainInput, getRingerGain());
             audioObj.preload = "auto";
             audioObj.onplay = function(){
                 var outputStream = new MediaStream();

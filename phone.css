@@ -1161,6 +1161,21 @@ input[type=range]{
     background-color: rgb(14, 192, 23);
     box-shadow: inset 2px 2px 3px rgba(255, 255, 255, 0.2), inset -2px -2px 3px rgba(0, 0, 0, 0.2);
 }
+.Settings_GainRow{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}
+.Settings_GainRow input[type=range]{
+    width: 100%;
+}
+.Settings_GainValue{
+    min-width: 48px;
+    text-align: right;
+    font-size: 12px;
+    color: #666666;
+}
 
 .clearsearchTextBtn {
     border-radius: 100px;
