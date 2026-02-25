@@ -763,12 +763,12 @@
                 return '<div style="padding:12px;">Aucun appel trouvé.</div>';
             }
             var html = ''+
-            '<table style="width:100%; border-collapse:collapse; font-family:Roboto, Arial, Helvetica; font-size:13px;">'+
-            '<thead><tr style="text-align:left; border-bottom:1px solid rgba(0,0,0,0.08);">'+
-            '<th style="padding:8px 12px;">Date</th>'+
-            '<th style="padding:8px 12px;">Numéro</th>'+
-            '<th style="padding:8px 12px;">Durée</th>'+
-            '<th style="padding:8px 12px;">Statut</th>'+
+            '<table class="sp-table">'+
+            '<thead><tr>'+
+            '<th>Date</th>'+
+            '<th>Numéro</th>'+
+            '<th>Durée</th>'+
+            '<th>Statut</th>'+
             '</tr></thead><tbody>';
             for(var i=0;i<items.length;i++){
                 var it = items[i] || {};
@@ -824,15 +824,15 @@
                 // Afficher le numéro et le nom si disponible
                 var displayText = escHtml(numero);
                 if(callerName && callerName !== numero){
-                    displayText += ' <span style="color:#6b7280; font-size:12px;">(' + escHtml(callerName) + ')</span>';
+                    displayText += ' <span class="sp-muted" style="font-size:12px;">(' + escHtml(callerName) + ')</span>';
                 }
-                var callBtn = '<span class="history-call" role="button" tabindex="0" title="Composer" data-number="'+ escHtml(numero) +'" style="color:#2563eb; cursor:pointer; user-select:text; -webkit-user-select:text;">'+ displayText +'</span>';
+                var callBtn = '<span class="history-call sp-link" role="button" tabindex="0" title="Composer" data-number="'+ escHtml(numero) +'" style="user-select:text; -webkit-user-select:text;">'+ displayText +'</span>';
                 
-                html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.04);">'+
-                    '<td style="padding:8px 12px;">'+ tryDate(dateVal) +'</td>'+
-                    '<td style="padding:8px 12px;">'+ callBtn +'</td>'+
-                    '<td style="padding:8px 12px;">'+ fmtDuration(durVal) +'</td>'+
-                    '<td style="padding:8px 12px;">'+ combinedIcon +'</td>'+
+                html += '<tr>'+
+                    '<td>'+ tryDate(dateVal) +'</td>'+
+                    '<td>'+ callBtn +'</td>'+
+                    '<td>'+ fmtDuration(durVal) +'</td>'+
+                    '<td>'+ combinedIcon +'</td>'+
                 '</tr>';
             }
             html += '</tbody></table>';
@@ -894,12 +894,12 @@
             var apiKey    = ctx.apiKey || '';
             var moveBase  = ctx.moveBase || '';
             var html = ''+
-                '<table style="width:100%; border-collapse:collapse; font-family:Roboto, Arial, Helvetica; font-size:13px;">'+
-                '<thead><tr style="text-align:left; border-bottom:1px solid rgba(0,0,0,0.08);">'+
-                '<th style="padding:8px 12px;">Date</th>'+
-                '<th style="padding:8px 12px;">Appelant</th>'+
-                '<th style="padding:8px 12px;">Durée</th>'+
-                '<th style="padding:8px 12px;">Lecture</th>'+
+                '<table class="sp-table">'+
+                '<thead><tr>'+
+                '<th>Date</th>'+
+                '<th>Appelant</th>'+
+                '<th>Durée</th>'+
+                '<th>Lecture</th>'+
                 '</tr></thead><tbody>';
             for(var i=0;i<items.length;i++){
                 var it = items[i] || {};
@@ -929,7 +929,7 @@
                     }catch(e){ /* ignore */ }
                 }
                 if(!audioUrl && audio){ audioUrl = audio; }
-                var numberBtn = '<button type="button" class="voicemail-call" data-number="'+ escHtml(fromVal) +'" style="appearance:none; border:0; background:transparent; color:#2563eb; cursor:pointer; padding:0;">'+ escHtml(fromVal) +'</button>';
+                var numberBtn = '<button type="button" class="voicemail-call sp-link" data-number="'+ escHtml(fromVal) +'">'+ escHtml(fromVal) +'</button>';
                 // Gestion des cas: 1) endpoint direct binaire, 2) endpoint JSON { minetype, audio(base64) }, 3) données déjà incluses (it.minetype + it.audio)
                 var action = '';
                 var mimeInline = pick(it, ['minetype','mime','mimetype']);
@@ -945,18 +945,16 @@
                 if(!action){
                     if(audioUrl){
                         // On diffère le chargement: on affiche un bouton explicite qui fera le fetch puis activera le player
-            var btn = '<button type="button" class="vm-load" data-endpoint="'+ escHtml(audioUrl) +'"'
-                + ' style="padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; background:#f9fafb; cursor:pointer;">'
+            var btn = '<button type="button" class="vm-load sp-button-surface" data-endpoint="'+ escHtml(audioUrl) +'" style="padding:6px 10px; border-radius:6px;">'
                 + '<i class="fa fa-download"></i> Lire'
                 + '</button>';
                var delBase = ctx.deleteBase || '';
                         var delBtn = '';
                         if(msgId && delBase){
-                            delBtn = '<button type="button" class="vm-delete" data-id="'+ escHtml(msgId) +'" data-endpoint="'+ escHtml(delBase) +'" data-ext="'+ escHtml(apiExt || '') +'" data-key="'+ escHtml(apiKey || '') +'"'
-                                   + ' title="Supprimer" aria-label="Supprimer ce message"'
-                                   + ' style="padding:6px 10px; border:1px solid #fecaca; border-radius:6px; background:#fef2f2; color:#b91c1c; cursor:pointer;">'
-                                   + '<i class="fa fa-trash"></i>'
-                                   + '</button>';
+                            delBtn = '<button type="button" class="vm-delete sp-button-danger" data-id="'+ escHtml(msgId) +'" data-endpoint="'+ escHtml(delBase) +'" data-ext="'+ escHtml(apiExt || '') +'" data-key="'+ escHtml(apiKey || '') +'"'
+                                + ' title="Supprimer" aria-label="Supprimer ce message">'
+                                + '<i class="fa fa-trash"></i>'
+                                + '</button>';
                         }
          action = '<div class="vm-audio" style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap; width:100%;"'
                    + (msgId ? ' data-msg-id="'+ escHtml(msgId) +'"' : '')
@@ -970,16 +968,15 @@
                                +   (delBtn ? delBtn : '')
                                + '</div>';
                     } else {
-                        action = '<span style="color:#6b7280;">(pas d\'audio)</span>';
+                        action = '<span class="sp-muted">(pas d\'audio)</span>';
                     }
                 }
-                var rowStyle = 'border-bottom:1px solid rgba(0,0,0,0.04);';
-                if(isInbox){ rowStyle = 'font-weight:600; ' + rowStyle; }
-                html += '<tr style="'+ rowStyle +'">'+
-                    '<td style="padding:8px 12px;">'+ tryDate(dateVal) +'</td>'+
-                    '<td style="padding:8px 12px;">'+ numberBtn +'</td>'+
-                    '<td style="padding:8px 12px;">'+ fmtDuration(durVal) +'</td>'+
-                    '<td style="padding:8px 12px;">'+ action +'</td>'+
+                var rowClass = isInbox ? ' class="sp-table-row--bold"' : '';
+                html += '<tr'+ rowClass +'>'+
+                    '<td>'+ tryDate(dateVal) +'</td>'+
+                    '<td>'+ numberBtn +'</td>'+
+                    '<td>'+ fmtDuration(durVal) +'</td>'+
+                    '<td>'+ action +'</td>'+
                 '</tr>';
             }
             html += '</tbody></table>';
@@ -1085,10 +1082,10 @@
                         try{ setupVoicemailPlayers(); }catch(e){}
                     })
                     .catch(function(err){
-                        contentEl.innerHTML = '<div style="padding:12px; color:#b91c1c;">Impossible de charger la messagerie ('+ escHtml(err.message) +').</div>';
+                        contentEl.innerHTML = '<div class="sp-error" style="padding:12px;">Impossible de charger la messagerie ('+ escHtml(err.message) +').</div>';
                     });
             }catch(e){
-                contentEl.innerHTML = '<div style="padding:12px; color:#b91c1c;">URL invalide: '+ escHtml(e && e.message ? e.message : String(e)) +'</div>';
+                contentEl.innerHTML = '<div class="sp-error" style="padding:12px;">URL invalide: '+ escHtml(e && e.message ? e.message : String(e)) +'</div>';
             }
         }
         // Convertit base64 -> Blob
@@ -1310,7 +1307,7 @@
                                 console.error('Chargement audio voicemail (auto)', err);
                                 try{
                                     var parent = aud.parentElement;
-                                    if(parent){ parent.insertAdjacentHTML('beforeend', '<div style="color:#b91c1c; font-size:12px; margin-top:4px;">Audio indisponible</div>'); }
+                                    if(parent){ parent.insertAdjacentHTML('beforeend', '<div class="sp-error" style="font-size:12px; margin-top:4px;">Audio indisponible</div>'); }
                                 }catch(e){}
                             })
                             .finally(function(){ active--; try{ sizePanelToContent(); }catch(e){} next(); });
@@ -1389,7 +1386,7 @@
                             console.error('Chargement audio voicemail', err);
                             try{
                                 var parent = aud.parentElement;
-                                if(parent){ parent.insertAdjacentHTML('beforeend', '<div style="color:#b91c1c; font-size:12px; margin-top:4px;">Audio indisponible</div>'); }
+                                if(parent){ parent.insertAdjacentHTML('beforeend', '<div class="sp-error" style="font-size:12px; margin-top:4px;">Audio indisponible</div>'); }
                             }catch(e){}
                         });
                 }
@@ -1451,7 +1448,7 @@
             openPanel("Historique des appels", '<div style="padding:12px;">Chargement…</div>', 'history');
 
             if(!domain || !ext){
-                contentEl.innerHTML = '<div style="padding:12px; color:#b91c1c;">Configuration manquante: domaine ou extension introuvable.</div>';
+                contentEl.innerHTML = '<div class="sp-error" style="padding:12px;">Configuration manquante: domaine ou extension introuvable.</div>';
                 return;
             }
             domain = normalizeApiDomain(domain);
@@ -1476,7 +1473,7 @@
                     bindHistoryClicks();
                 })
                 .catch(function(err){
-                    contentEl.innerHTML = '<div style="padding:12px; color:#b91c1c;">Impossible de charger l\'historique ('+ escHtml(err.message) +').<br/>Vérifiez le domaine, la clé API et les droits CORS.</div>';
+                    contentEl.innerHTML = '<div class="sp-error" style="padding:12px;">Impossible de charger l\'historique ('+ escHtml(err.message) +').<br/>Vérifiez le domaine, la clé API et les droits CORS.</div>';
                 });
         }
 
@@ -1497,7 +1494,7 @@
                 'voicemail': { min: 520, max: 550 },
                 'history':   { min: 420, max: 420 },
                 'contacts':  { min: 300, max: 300 },
-                'favorites': { min: 320, max: 420 },
+                'favorites': { min: 150, max: 420 },
                 'functions': { min: 420, max: 420 },
                 'default':   { min: 360, max: 560 }
             };
@@ -1506,7 +1503,12 @@
             var maxPref = localStorage.getItem('SidepanelMaxWidth_' + type) || localStorage.getItem('SidepanelMaxWidth');
             var minW = parseInt(minPref || String(def.min), 10);
             var maxW = parseInt(maxPref || String(def.max), 10);
-            if(!isFinite(minW) || minW < 280) minW = 280;
+            if(!isFinite(minW)) minW = 280;
+            if(type === 'favorites'){
+                if(minW < 150) minW = 150;
+            } else if(minW < 280){
+                minW = 280;
+            }
             if(!isFinite(maxW) || maxW < minW) maxW = Math.max(minW, 720);
             var contentW = Math.ceil(contentEl.scrollWidth || 0);
             // marge interne pour respirer
@@ -1531,14 +1533,14 @@
                 var css = document.createElement('style');
                 css.id = 'advanced-toggle-css';
                 css.textContent = ''
-                    + '.toggle-switch{display:inline-flex;align-items:center;gap:8px;user-select:none;}\n'
-                    + '.toggle-switch input{position:absolute;opacity:0;width:0;height:0;}\n'
-                    + '.toggle-switch .slider{position:relative;width:44px;height:24px;background:#e5e7eb;border-radius:9999px;transition:background .2s ease;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06);}\n'
-                    + '.toggle-switch .slider::before{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;background:#fff;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .2s ease;}\n'
-                    + '.toggle-switch input:checked + .slider{background:#10b981;}\n'
-                    + '.toggle-switch input:checked + .slider::before{transform:translateX(20px);}\n'
-                    + '.toggle-switch .toggle-label{font-size:12px;color:#6b7280;}\n'
-                    + '.toggle-switch input:checked ~ .toggle-label{color:#065f46;font-weight:500;}\n';
+                    + '.sidepanel .toggle-switch{display:inline-flex;align-items:center;gap:8px;user-select:none;}\n'
+                    + '.sidepanel .toggle-switch input{position:absolute;opacity:0;width:0;height:0;}\n'
+                    + '.sidepanel .toggle-switch .slider{position:relative;width:44px;height:24px;background:var(--sp-toggle-off-bg);border-radius:9999px;transition:background .2s ease;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.06);}\n'
+                    + '.sidepanel .toggle-switch .slider::before{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;background:var(--sp-toggle-knob);border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .2s ease;}\n'
+                    + '.sidepanel .toggle-switch input:checked + .slider{background:var(--sp-toggle-on-bg);}\n'
+                    + '.sidepanel .toggle-switch input:checked + .slider::before{transform:translateX(20px);}\n'
+                    + '.sidepanel .toggle-switch .toggle-label{font-size:12px;color:var(--sp-toggle-label);}\n'
+                    + '.sidepanel .toggle-switch input:checked ~ .toggle-label{color:var(--sp-toggle-label-on);font-weight:500;}\n';
                 document.head.appendChild(css);
             })();
 
@@ -1553,7 +1555,7 @@
                 if(apiExt) u.searchParams.set('extension', apiExt);
                 if(apiKey) u.searchParams.set('api_key', apiKey);
             }catch(e){
-                contentEl.innerHTML = '<div style="padding:12px; color:#b91c1c;">URL invalide pour forward_detail.</div>';
+                contentEl.innerHTML = '<div class="sp-error" style="padding:12px;">URL invalide pour forward_detail.</div>';
                 return;
             }
 
@@ -1627,15 +1629,15 @@
                     var html = ''
                         + '<div style="padding:12px;">'
                         +   '<div style="margin-bottom:12px;">'
-                        +       '<button type="button" style="width:100%; padding:10px 12px; border-radius:8px; text-align:left; color:#000; background:transparent; border:1px solid #d1d5db; font-size:14px; line-height:18px; cursor:pointer;" onclick="try{ ShowMyProfile ? ShowMyProfile() : null; }catch(e){ console.warn(e); }">'
-                        +           '<span style="font-weight:600; font-size:14px; line-height:18px;">Configurer l\'extension</span>'
+                        +       '<button type="button" class="sp-button-surface" style="width:100%; padding:10px 12px; border-radius:8px; text-align:left; font-size:14px; line-height:18px;" onclick="try{ ShowMyProfile ? ShowMyProfile() : null; }catch(e){ console.warn(e); }">'
+                        +           '<span class="sp-section-title" style="font-size:14px; line-height:18px;">Configurer l\'extension</span>'
                         +       '</button>'
                         +   '</div>'
-                        +   '<div style="margin-bottom:12px; font-weight:500;">Paramètres de ligne</div>'
-                        +   '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:8px;">'
+                        +   '<div class="sp-section-title" style="margin-bottom:12px;">Paramètres de ligne</div>'
+                        +   '<div class="sp-card" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;">'
                         +       '<div>'
                         +           '<div style="font-weight:500;">Ne pas déranger (DND)</div>'
-                        +           '<div style="font-size:12px; color:#6b7280;">Empêche la sonnerie et les appels entrants.</div>'
+                        +           '<div class="sp-muted" style="font-size:12px;">Empêche la sonnerie et les appels entrants.</div>'
                         +       '</div>'
                         +       '<label class="toggle-switch" aria-label="DND" role="switch">'
                         +           '<input id="toggleDnd" type="checkbox" '+ (state.dnd ? 'checked' : '') +' />'
@@ -1643,11 +1645,11 @@
                         +           '<span class="toggle-label">Actif</span>'
                         +       '</label>'
                         +   '</div>'
-                        +   '<div style="padding:10px; border:1px solid #e5e7eb; border-radius:8px;">'
+                        +   '<div class="sp-card">'
                         +       '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;">'
                         +           '<div>'
                         +               '<div style="font-weight:500;">Renvoi d\'appel (CFU)</div>'
-                        +               '<div style="font-size:12px; color:#6b7280;">Transfère tous les appels vers un numéro.</div>'
+                        +               '<div class="sp-muted" style="font-size:12px;">Transfère tous les appels vers un numéro.</div>'
                         +           '</div>'
                         +           '<label class="toggle-switch" aria-label="CFU" role="switch">'
                         +               '<input id="toggleCf" type="checkbox" '+ (state.cfEnabled ? 'checked' : '') +' />'
@@ -1656,12 +1658,11 @@
                         +           '</label>'
                         +       '</div>'
                         +       '<div>'
-                        +           '<label for="cfNumber" style="display:block; font-size:13px; color:#374151; margin-bottom:6px;">Numéro de renvoi</label>'
-                        +           '<input id="cfNumber" type="text" value="'+ escHtml(state.cfNumber || '') +'"'
-                        +               ' style="display:block; width:100%; box-sizing:border-box; padding:10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;" />'
+                        +           '<label for="cfNumber" class="sp-label">Numéro de renvoi</label>'
+                        +           '<input id="cfNumber" type="text" value="'+ escHtml(state.cfNumber || '') +'" class="sp-input" />'
                         +       '</div>'
                         +   '</div>'
-                        +   '<div id="advancedMsg" style="margin-top:6px; font-size:12px; color:#6b7280;"></div>'
+                        +   '<div id="advancedMsg" class="sp-muted" style="margin-top:6px; font-size:12px;"></div>'
                         + '</div>';
 
                     contentEl.innerHTML = html;
@@ -1673,7 +1674,12 @@
 
                         // Helper: appel API d'édition forward (GET)
                         var msgEl = document.getElementById('advancedMsg');
-                        function setMsg(text, isError){ if(!msgEl) return; msgEl.textContent = text || ''; msgEl.style.color = isError ? '#b91c1c' : '#6b7280'; }
+                        function setMsg(text, isError){
+                            if(!msgEl) return;
+                            msgEl.textContent = text || '';
+                            msgEl.classList.toggle('sp-error', !!isError);
+                            msgEl.classList.toggle('sp-muted', !isError);
+                        }
                         var saving = false;
                         var needResave = false;
                         function saveForward(){
@@ -1740,7 +1746,7 @@
                     sizePanelToContent();
                 })
                 .catch(function(err){
-                    contentEl.innerHTML = '<div style="padding:12px; color:#b91c1c;">Impossible de charger les fonctions avancées ('+ escHtml(err && err.message ? err.message : String(err)) +').</div>';
+                    contentEl.innerHTML = '<div class="sp-error" style="padding:12px;">Impossible de charger les fonctions avancées ('+ escHtml(err && err.message ? err.message : String(err)) +').</div>';
                 });
         }
 
@@ -1894,14 +1900,13 @@
                         openPanel(
                             b.title,
                             "<div id='divFindBuddyContacts' style='padding:12px; overflow-x:hidden;'>"
-                            + "<label for='txtFindBuddyContacts' style='display:block; font-size:13px; color:#374151; margin-bottom:6px;'>Rechercher un contact</label>"
-                            + "<input id='txtFindBuddyContacts' type='text' placeholder='Nom (ex: jpr), numéro…' autocomplete='off'"
-                            + " style='display:block; width:100%; max-width:100%; box-sizing:border-box; padding:10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;' />"
+                            + "<label for='txtFindBuddyContacts' class='sp-label'>Rechercher un contact</label>"
+                            + "<input id='txtFindBuddyContacts' type='text' placeholder='Nom (ex: jpr), numéro…' autocomplete='off' class='sp-input' />"
                             + "<div style='display:flex; align-items:center; justify-content:space-between; margin:10px 0 8px 0;'>"
                             + "<div id='ldapResultsContacts' style='margin-top:6px; min-height:24px;'></div>"
                             + "</div>"
                             + "<div style='display:flex; align-items:center; justify-content:space-between; margin-top:6px;'>"
-                            + "<div style='font-weight:600;'>Contacts personnels</div>"
+                            + "<div class='sp-section-title'>Contacts personnels</div>"
                             + "<button type='button' class='roundButtons' title='Ajouter un contact' onclick=\"try{ AddSomeoneWindow(''); closePanel(); }catch(e){ console.warn(e); }\"><i class='fa fa-user-plus'></i></button>"
                             + "</div>"
                             + "<div id='personalContactsList' style='margin-top:10px;'></div>"
@@ -1953,7 +1958,7 @@
                                 }) : [];
 
                                 if(items.length === 0){
-                                    listEl.innerHTML = "<div style='color:#6b7280; font-size:13px;'>Aucun contact personnel.</div>";
+                                    listEl.innerHTML = "<div class='sp-muted' style='font-size:13px;'>Aucun contact personnel.</div>";
                                     return;
                                 }
 
@@ -1964,16 +1969,16 @@
                                     var num = escapeHtml(it.ContactNumber1 || it.MobileNumber || it.ExtensionNumber || "");
                                     var desc = escapeHtml(it.Description || "");
                                     var cid = escapeHtml(it.cID || "");
-                                    h += "<li style='padding:8px 0; border-bottom:1px solid #e5e7eb;'>";
+                                    h += "<li class='sp-divider' style='padding:8px 0;'>";
                                     h += "<div style='display:flex; align-items:center; justify-content:space-between; gap:8px;'>";
                                     h += "<div style='flex:1; min-width:0;'>";
-                                    h += "<div style='font-weight:600; color:#111827; display:flex; align-items:baseline; gap:6px; flex-wrap:wrap;'>";
+                                    h += "<div class='sp-section-title' style='display:flex; align-items:baseline; gap:6px; flex-wrap:wrap;'>";
                                     h += "<span>"+ name +"</span>";
-                                    if(desc) h += "<span style='font-weight:400; color:#6b7280; font-size:12px;'>"+ desc +"</span>";
+                                    if(desc) h += "<span class='sp-muted' style='font-weight:400; font-size:12px;'>"+ desc +"</span>";
                                     h += "</div>";
                                     if(num){
-                                        var callBtn = "<button type=\"button\" class=\"ldap-call\" data-number=\""+ num +"\" style=\"appearance:none; border:0; background:transparent; color:#2563eb; cursor:pointer; padding:0;\">"+ num +"</button>";
-                                        h += "<div style='color:#374151; font-size:13px;'><i class='fa fa-phone'></i> " + callBtn + "</div>";
+                                        var callBtn = "<button type=\"button\" class=\"ldap-call sp-link\" data-number=\""+ num +"\">"+ num +"</button>";
+                                        h += "<div class='sp-text'><i class='fa fa-phone'></i> " + callBtn + "</div>";
                                     }
                                     h += "</div>";
                                     h += "<div style='display:flex; align-items:center; gap:0; margin-left:auto; padding-right:0;'>";
@@ -2029,17 +2034,17 @@
                                     homeList.forEach(function(n){ if(n && nums.indexOf(n) === -1) nums.push(n); });
 
                                     var mail = escHtml(it.mail || '');
-                                    h += "<li style='border-bottom:1px solid rgba(0,0,0,0.06); padding:10px 0;'>"
+                                    h += "<li class='sp-item' style='padding:10px 0;'>"
                                         + "<div style='font-weight:500;'>"+ name +"</div>"
                                         + (nums.length ? nums.map(function(n){
                                               var label = '';
-                                              if(mobList.indexOf(n) !== -1) label = " <span style=\"margin-left:6px; font-size:11px; color:#065f46; background:#dcfce7; border:1px solid #10b981; border-radius:10px; padding:1px 6px;\">Mobile</span>";
-                                              else if(telList.indexOf(n) !== -1) label = " <span style=\"margin-left:6px; font-size:11px; color:#1f2937; background:#e5e7eb; border:1px solid #d1d5db; border-radius:10px; padding:1px 6px;\">Téléphone</span>";
-                                              else if(homeList.indexOf(n) !== -1) label = " <span style=\"margin-left:6px; font-size:11px; color:#6b7280; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:10px; padding:1px 6px;\">Domicile</span>";
-                                              var callBtn = "<button type=\"button\" class=\"ldap-call\" data-number=\""+ escHtml(n) +"\" style=\"appearance:none; border:0; background:transparent; color:#2563eb; cursor:pointer; padding:0;\">"+ escHtml(n) +"</button>";
-                                              return "<div style='margin-top:2px; color:#374151; font-size:13px;'><i class='fa fa-phone'></i> " + callBtn + label + "</div>";
+                                              if(mobList.indexOf(n) !== -1) label = " <span class=\"sp-badge sp-badge--mobile\">Mobile</span>";
+                                              else if(telList.indexOf(n) !== -1) label = " <span class=\"sp-badge\">Téléphone</span>";
+                                              else if(homeList.indexOf(n) !== -1) label = " <span class=\"sp-badge sp-badge--home\">Domicile</span>";
+                                              var callBtn = "<button type=\"button\" class=\"ldap-call sp-link\" data-number=\""+ escHtml(n) +"\">"+ escHtml(n) +"</button>";
+                                              return "<div class='sp-text' style='margin-top:2px;'><i class='fa fa-phone'></i> " + callBtn + label + "</div>";
                                             }).join('') : "")
-                                        + (mail ? "<div style='margin-top:2px; color:#374151; font-size:13px;'><i class='fa fa-envelope'></i> "+ mail +"</div>" : "")
+                                        + (mail ? "<div class='sp-text' style='margin-top:2px;'><i class='fa fa-envelope'></i> "+ mail +"</div>" : "")
                                         + "</li>";
                                 }
                                 h += "</ul>";
@@ -2094,14 +2099,14 @@
                                 window.searchLdapBySn(q).then(function(resp){
                                     if(!resp || resp.ok !== true){
                                         var msg = (resp && resp.error) ? resp.error : 'Erreur inconnue';
-                                        results.innerHTML = "<div style='color:#b91c1c;'>"+ escHtml(msg) +"</div>";
+                                        results.innerHTML = "<div class='sp-error'>"+ escHtml(msg) +"</div>";
                                     } else {
                                         results.innerHTML = renderLdapItems(resp.items || []);
                                         bindLdapDialClicks();
                                     }
                                     sizePanelToContent();
                                 }).catch(function(err){
-                                    results.innerHTML = "<div style='color:#b91c1c;'>"+ escHtml(err && err.message ? err.message : String(err)) +"</div>";
+                                    results.innerHTML = "<div class='sp-error'>"+ escHtml(err && err.message ? err.message : String(err)) +"</div>";
                                     sizePanelToContent();
                                 });
                             }, 350);
@@ -2114,17 +2119,15 @@
                             b.title,
                             "<div id='favoritesPanel' style='padding:12px; overflow-x:hidden;'>"
                             +   "<div style='display:flex; align-items:center; gap:10px; margin-bottom:10px;'>"
-                            +       "<div id='favHelp' style='color:#6b7280; font-size:13px;'>Cliquez sur ADD pour ajouter un favori depuis l'annuaire.</div>"
-                            +       "<button id='favAddBtn' type='button' class='roundButtons' title='Ajouter un favori'"
-                            +           " style='border:1px solid #d1d5db; background:#f9fafb; cursor:pointer;'>"
+                            +       "<div id='favHelp' class='sp-muted' style='font-size:13px;'>Ajoutez un favori depuis l'annuaire.</div>"
+                            +       "<button id='favAddBtn' type='button' class='roundButtons' title='Ajouter un favori'>"
                             +           "<i class='fa fa-user-plus'></i>"
                             +       "</button>"
                             +   "</div>"
                             +   "<div id='favList' style='margin-bottom:12px;'></div>"
                             +   "<div id='favSearchZone' style='display:none;'>"
-                            +       "<label for='txtFindFavorite' style='display:block; font-size:13px; color:#374151; margin-bottom:6px;'>Rechercher dans l'annuaire</label>"
-                            +       "<input id='txtFindFavorite' type='text' placeholder='Nom ou extension…' autocomplete='off'"
-                            +           " style='display:block; width:100%; max-width:100%; box-sizing:border-box; padding:10px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;' />"
+                            +       "<label for='txtFindFavorite' class='sp-label'>Rechercher dans l'annuaire</label>"
+                            +       "<input id='txtFindFavorite' type='text' placeholder='Nom ou extension…' autocomplete='off' class='sp-input' />"
                             +       "<div id='favResults' style='margin-top:10px; min-height:24px;'></div>"
                             +   "</div>"
                             + "</div>"
@@ -2249,12 +2252,12 @@
                                     var name = esc(bestName(it) || '');
                                     var mobiles = toList(it.mobile).map(String);
                                     var email = escHtml(it.mail || it.email || '');
-                                    var extLbl = "<span style=\"margin-left:6px; font-size:11px; color:#1f2937; background:#e5e7eb; border:1px solid #d1d5db; border-radius:10px; padding:1px 6px;\">Ext " + esc(stripPrefixForDisplay(ext)) + "</span>";
-                                    var addBtn = "<button type=\"button\" class=\"fav-add\" data-ext=\""+ esc(ext) +"\" data-name=\""+ name +"\" data-mobile=\""+ escHtml(mobiles[0]||'') +"\" data-email=\""+ email +"\" style=\"margin-top:4px; padding:4px 8px; border:1px solid #10b981; background:#ecfdf5; color:#065f46; border-radius:6px; cursor:pointer;\"><i class='fa fa-plus'></i> Ajouter</button>";
-                                    h += "<li style='border-bottom:1px solid rgba(0,0,0,0.06); padding:10px 0;'>"
+                                    var extLbl = "<span class=\"sp-badge\">Ext " + esc(stripPrefixForDisplay(ext)) + "</span>";
+                                    var addBtn = "<button type=\"button\" class=\"fav-add sp-button-add\" data-ext=\""+ esc(ext) +"\" data-name=\""+ name +"\" data-mobile=\""+ escHtml(mobiles[0]||'') +"\" data-email=\""+ email +"\"><i class='fa fa-plus'></i> Ajouter</button>";
+                                    h += "<li class='sp-item' style='padding:10px 0;'>"
                                         +   "<div style='font-weight:500;'>"+ name +" "+ extLbl +"</div>"
-                                        +   (mobiles.length? ("<div style='margin-top:2px; color:#374151; font-size:13px;'><i class='fa fa-phone'></i> "+ escHtml(mobiles[0]) +"</div>") : "")
-                                        +   (email? ("<div style='margin-top:2px; color:#374151; font-size:13px;'><i class='fa fa-envelope'></i> "+ email +"</div>") : "")
+                                        +   (mobiles.length? ("<div class='sp-text' style='margin-top:2px;'><i class='fa fa-phone'></i> "+ escHtml(mobiles[0]) +"</div>") : "")
+                                        +   (email? ("<div class='sp-text' style='margin-top:2px;'><i class='fa fa-envelope'></i> "+ email +"</div>") : "")
                                         +   addBtn
                                         + "</li>";
                                     shown++;
@@ -2266,7 +2269,7 @@
 
                             function renderFavList(items){
                                 if(!Array.isArray(items) || items.length === 0){
-                                    return "<div style='color:#6b7280; font-size:13px;'>Aucun favori pour le moment.</div>";
+                                    return "<div class='sp-muted' style='font-size:13px;'>Aucun favori pour le moment.</div>";
                                 }
                                 var h = "<ul style='list-style:none; margin:0; padding:0;'>";
                                 for(var i=0;i<items.length;i++){
@@ -2274,15 +2277,15 @@
                                     var name = escHtml((it.DisplayName || it.CallerIDName || ''));
                                     var ext = escHtml(it.ExtensionNumber || it.ExtNo || '');
                                     var identity = escHtml(String(it.uID || it.cID || it.gID || ''));
-                                    var badge = ext ? ("<button type=\"button\" class=\"fav-dial\" data-number=\""+ ext +"\" title=\"Appeler\" style=\"margin-left:6px; font-size:11px; color:#2563eb; background:transparent; border:0; padding:0; cursor:pointer;\"><i class='fa fa-phone'></i> "+ stripPrefixForDisplay(ext) +"</button>") : "";
+                                    var badge = ext ? ("<button type=\"button\" class=\"fav-dial sp-link\" data-number=\""+ ext +"\" title=\"Appeler\" style=\"margin-left:6px; font-size:11px;\"><i class='fa fa-phone'></i> "+ stripPrefixForDisplay(ext) +"</button>") : "";
                                     var dialBtn = "";
                                     var remBtn = identity ? ("<button type=\"button\" class=\"roundButtons fav-remove\" data-id=\""+ identity +"\" title=\"Retirer des favoris\" style=\"margin-left:6px;\"><i class='fa fa-trash'></i></button>") : "";
                                     var presDot = identity ? ("<span id='fav-pres-"+ identity +"' title='' aria-label=''"
                                                      + " style=\"display:inline-block;width:8px;height:8px;border-radius:50%;background:#16a34a;margin-right:6px;vertical-align:middle;\"></span>") : "";
-                                    var presText = identity ? ("<span id='fav-pres-text-"+ identity +"' style=\"margin-left:8px; font-size:12px; color:#6b7280;\"></span>") : "";
-                                    h += "<li data-fav-id='"+ identity +"' style='border-bottom:1px solid rgba(0,0,0,0.06); padding:8px 0; display:flex; align-items:center; justify-content:space-between;'>"
+                                    var presText = identity ? ("<span id='fav-pres-text-"+ identity +"' class=\"sp-muted\" style=\"margin-left:8px; font-size:12px;\"></span>") : "";
+                                    h += "<li data-fav-id='"+ identity +"' data-number='"+ ext +"' class='sp-item fav-item' style='padding:8px 0; display:flex; align-items:center; gap:8px; cursor:pointer;'>"
                                         +   "<div>"+ presDot +"<strong>"+ name +"</strong> "+ badge + presText +"</div>"
-                                        +   "<div>"+ dialBtn + remBtn +"</div>"
+                                        +   "<div style='margin-left:auto; display:flex; align-items:center;'>"+ dialBtn + remBtn +"</div>"
                                         + "</li>";
                                 }
                                 h += "</ul>";
@@ -2362,6 +2365,22 @@
                                     dialBtns.forEach(function(btn){
                                         btn.addEventListener('click', function(){
                                             var num = btn.getAttribute('data-number') || '';
+                                            if(num){
+                                                try{
+                                                    if(window.handleSidePanelNumberClick && window.handleSidePanelNumberClick(num)) return;
+                                                    if(window.DialByLine){ window.DialByLine('audio', null, num); }
+                                                } catch(e){}
+                                            }
+                                        });
+                                    });
+                                    // Bind full-row click for dialing
+                                    var favItems = favListEl.querySelectorAll('.fav-item');
+                                    favItems.forEach(function(item){
+                                        item.addEventListener('click', function(e){
+                                            if(e && e.target && e.target.closest){
+                                                if(e.target.closest('.fav-remove') || e.target.closest('.fav-dial')) return;
+                                            }
+                                            var num = item.getAttribute('data-number') || '';
                                             if(num){
                                                 try{
                                                     if(window.handleSidePanelNumberClick && window.handleSidePanelNumberClick(num)) return;
@@ -2527,14 +2546,14 @@
                                 favRes.innerHTML = "<div><span class='fa fa-circle-o-notch fa-spin'></span> Recherche…</div>";
                                 window.searchContactsApi(q).then(function(resp){
                                     if(!resp || resp.ok !== true){
-                                        favRes.innerHTML = "<div style='color:#b91c1c;'>"+ esc(resp && resp.error ? resp.error : 'Erreur recherche') +"</div>";
+                                        favRes.innerHTML = "<div class='sp-error'>"+ esc(resp && resp.error ? resp.error : 'Erreur recherche') +"</div>";
                                     } else {
                                         favRes.innerHTML = renderFavResults(resp.items || []);
                                         bindAddButtons();
                                     }
                                     sizePanelToContent();
                                 }).catch(function(err){
-                                    favRes.innerHTML = "<div style='color:#b91c1c;'>"+ esc(err && err.message ? err.message : String(err)) +"</div>";
+                                    favRes.innerHTML = "<div class='sp-error'>"+ esc(err && err.message ? err.message : String(err)) +"</div>";
                                     sizePanelToContent();
                                 });
                             }, 350);

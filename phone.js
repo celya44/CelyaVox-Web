@@ -1898,6 +1898,7 @@ function InitUi(){
     // Action Buttons
     leftHTML += "<span class=settingsMenu>";
     leftHTML += "<button id=\"line-6-btn-settings\" onclick=\"ChangeSettings('6', this)\" class=\"roundButtons\" title=\"Paramètres de l'appareil\"><i class=\"fa fa-volume-up\"></i></button>";
+    leftHTML += "<button id=\"ThemeToggle\" class=\"roundButtons\" type=\"button\" aria-label=\"Basculer le theme\"><i class=\"fa fa-moon-o\"></i></button>";
 /*    leftHTML += "<button class=roundButtons id=BtnAddSomeone><i class=\"fa fa-user-plus\"></i></button>";
     if(false){
          // TODO
@@ -2042,6 +2043,10 @@ function InitUi(){
         } else {
             ShowMyProfileMenu(this);
         }
+    });
+
+    $("#ThemeToggle").on('click', function(){
+        ToggleThemeStyle();
     });
 
     // Register Buttons
@@ -2190,6 +2195,7 @@ function ApplyThemeColor(){
     //UiThemeStyle = light | dark | system (can change at any time)
     var cssUrl = hostingPrefix +"phone.light.css";
     var wallpaperUrl = hostingPrefix +""+ imagesDirectory +""+ wallpaperLight;
+    var effectiveTheme = "light";
 
     // Overall Theme
     if(UiThemeStyle == "system"){
@@ -2197,24 +2203,37 @@ function ApplyThemeColor(){
             if(window.matchMedia('(prefers-color-scheme: dark)').matches){
                 cssUrl = hostingPrefix +"phone.dark.css";
                 wallpaperUrl = hostingPrefix +""+ imagesDirectory +""+ wallpaperDark;
+                effectiveTheme = "dark";
             } else {
                 cssUrl = hostingPrefix +"phone.light.css";
                 wallpaperUrl = hostingPrefix +""+ imagesDirectory +""+ wallpaperLight;
+                effectiveTheme = "light";
             }
         } else {
             cssUrl = hostingPrefix +"phone.dark.css";
+            effectiveTheme = "dark";
         }
     } else if(UiThemeStyle == "light"){
         cssUrl = hostingPrefix +"phone.light.css";
         wallpaperUrl = hostingPrefix +""+ imagesDirectory +""+ wallpaperLight;
+        effectiveTheme = "light";
     } else if(UiThemeStyle == "dark") {
         cssUrl = hostingPrefix +"phone.dark.css";
         wallpaperUrl = hostingPrefix +""+ imagesDirectory +""+ wallpaperDark;
+        effectiveTheme = "dark";
     } else {
         // Defaults to light
         cssUrl = hostingPrefix +"phone.light.css";
         wallpaperUrl = hostingPrefix +""+ imagesDirectory +""+ wallpaperLight;
+        effectiveTheme = "light";
     }
+    try{
+        document.documentElement.setAttribute('data-theme', effectiveTheme);
+        if(document.body){
+            document.body.classList.toggle('theme-dark', effectiveTheme === 'dark');
+            document.body.classList.toggle('theme-light', effectiveTheme === 'light');
+        }
+    }catch(e){ /* ignore */ }
     if($("#colorSchemeMode").length){
         // Style Sheet Added
     } else {
@@ -2230,6 +2249,40 @@ function ApplyThemeColor(){
     }
     var wallpaperStyle = ".wallpaperBackground { background-image:url('"+ wallpaperUrl +"') }";
     $("#colorSchemeModeSheet").text(wallpaperStyle);
+
+    UpdateThemeToggleButton();
+}
+
+function getEffectiveTheme(){
+    if(UiThemeStyle == "dark") return "dark";
+    if(UiThemeStyle == "light") return "light";
+    if(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches){
+        return "dark";
+    }
+    return "light";
+}
+
+function UpdateThemeToggleButton(){
+    var btn = $("#ThemeToggle");
+    if(!btn.length) return;
+
+    var currentTheme = getEffectiveTheme();
+    var useDark = (currentTheme === "dark");
+    var nextLabel = useDark ? "Passer au theme clair" : "Passer au theme sombre";
+    var nextIcon = useDark ? "fa fa-sun-o" : "fa fa-moon-o";
+
+    btn.attr("title", nextLabel);
+    btn.attr("aria-label", nextLabel);
+    btn.find("i").attr("class", nextIcon);
+}
+
+function ToggleThemeStyle(){
+    var currentTheme = getEffectiveTheme();
+    var nextTheme = (currentTheme === "dark") ? "light" : "dark";
+
+    UiThemeStyle = nextTheme;
+    localDB.setItem("UiThemeStyle", nextTheme);
+    ApplyThemeColor();
 }
 
 function PreloadAudioFiles(){

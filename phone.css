@@ -208,12 +208,12 @@
     box-shadow: 2px 0 12px rgba(0,0,0,0.15);
     transform: translateX(-100%);
     transition: transform 220ms ease;
-    z-index: 1100;
+    z-index: 900;
     display: flex;
     flex-direction: column;
 }
 .with-bottom-nav .sidepanel {
-    bottom: 64px; /* éviter la superposition avec .bottom-nav (64px) */
+    bottom: 0;
 }
 .sidepanel--open { transform: translateX(0); }
 .sidepanel__header {
@@ -245,6 +245,259 @@
     padding: 8px 0;
     overflow: auto; /* Un seul scroll, sur le contenu */
     max-height: calc(100vh - 64px - 50px); /* viewport - bottom bar (64) - header (50) */
+    color: #111827;
+}
+.sidepanel[data-type="favorites"] #favoritesPanel {
+    min-width: 0;
+}
+.sidepanel[data-type="favorites"] #favHelp {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: normal;
+}
+.sidepanel[data-type="favorites"] .sp-section-title,
+.sidepanel[data-type="favorites"] .sp-text,
+.sidepanel[data-type="favorites"] .sp-link {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
+}
+.sidepanel__content {
+    scrollbar-width: thin;
+    scrollbar-color: #a6a6a6 transparent;
+}
+.sidepanel__content::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+.sidepanel__content::-webkit-scrollbar-thumb {
+    background: #a6a6a6;
+    border-radius: 5px;
+}
+.sidepanel__content::-webkit-scrollbar-track {
+    background: transparent;
+}
+.sidepanel {
+    --sp-toggle-off-bg: #e5e7eb;
+    --sp-toggle-on-bg: #10b981;
+    --sp-toggle-label: #6b7280;
+    --sp-toggle-label-on: #065f46;
+    --sp-toggle-knob: #ffffff;
+    --sp-table-border: rgba(0,0,0,0.08);
+    --sp-row-border: rgba(0,0,0,0.04);
+}
+
+/* Sidepanel theme helpers */
+.sidepanel .sp-muted {
+    color: #6b7280;
+}
+.sidepanel .sp-text {
+    color: #374151;
+    font-size: 13px;
+}
+.sidepanel .sp-label {
+    display: block;
+    font-size: 13px;
+    color: #374151;
+    margin-bottom: 6px;
+}
+.sidepanel .sp-section-title {
+    font-weight: 600;
+    color: #111827;
+}
+.sidepanel .sp-input {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #ffffff;
+    color: #111827;
+}
+.sidepanel .sp-item {
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+.sidepanel .sp-divider {
+    border-bottom: 1px solid #e5e7eb;
+}
+.sidepanel .sp-link {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: #2563eb;
+    cursor: pointer;
+    padding: 0;
+}
+.sidepanel .sp-badge {
+    margin-left: 6px;
+    font-size: 11px;
+    color: #1f2937;
+    background: #e5e7eb;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    padding: 1px 6px;
+    display: inline-block;
+}
+.sidepanel .sp-badge--mobile {
+    color: #065f46;
+    background: #dcfce7;
+    border-color: #10b981;
+}
+.sidepanel .sp-badge--home {
+    color: #6b7280;
+    background: #f3f4f6;
+    border-color: #e5e7eb;
+}
+.sidepanel .sp-button-surface {
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+    color: #111827;
+    cursor: pointer;
+}
+.sidepanel .sp-button-add {
+    margin-top: 4px;
+    padding: 4px 8px;
+    border: 1px solid #10b981;
+    background: #ecfdf5;
+    color: #065f46;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.sidepanel .sp-button-danger {
+    padding: 6px 10px;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    background: #fef2f2;
+    color: #b91c1c;
+    cursor: pointer;
+}
+.sidepanel .sp-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px;
+}
+.sidepanel .sp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: Roboto, Arial, Helvetica;
+    font-size: 13px;
+}
+.sidepanel .sp-table thead tr {
+    text-align: left;
+    border-bottom: 1px solid var(--sp-table-border);
+}
+.sidepanel .sp-table tbody tr {
+    border-bottom: 1px solid var(--sp-row-border);
+}
+.sidepanel .sp-table th,
+.sidepanel .sp-table td {
+    padding: 8px 12px;
+}
+.sidepanel .sp-table-row--bold {
+    font-weight: 600;
+}
+
+/* Theme fallback for sidepanels when using JS theme toggle */
+.theme-dark .sidepanel {
+    background: #1f1f1f;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.45);
+    --sp-toggle-off-bg: #2f2f2f;
+    --sp-toggle-on-bg: #059669;
+    --sp-toggle-label: #9ca3af;
+    --sp-toggle-label-on: #a7f3d0;
+    --sp-toggle-knob: #f3f4f6;
+    --sp-table-border: #2f2f2f;
+    --sp-row-border: #2a2a2a;
+}
+.theme-dark .sidepanel__header {
+    background: #242424;
+    border-bottom: 1px solid #3e3e3e;
+    color: #cccccc;
+}
+.theme-dark .sidepanel__title {
+    color: #e5e5e5;
+}
+.theme-dark .sidepanel__close {
+    color: #cccccc;
+}
+.theme-dark .sidepanel__close:hover {
+    color: #ffffff;
+    background-color: #333333;
+}
+.theme-dark .sidepanel__content {
+    color: #cccccc;
+}
+.theme-dark .sidepanel__content {
+    scrollbar-color: #4b5563 transparent;
+}
+.theme-dark .sidepanel__content::-webkit-scrollbar-thumb {
+    background: #4b5563;
+}
+.theme-dark .sidepanel .sp-muted {
+    color: #9ca3af;
+}
+.theme-dark .sidepanel .sp-text {
+    color: #cbd5e1;
+}
+.theme-dark .sidepanel .sp-label {
+    color: #cbd5e1;
+}
+.theme-dark .sidepanel .sp-section-title {
+    color: #f3f4f6;
+}
+.theme-dark .sidepanel .sp-input {
+    background: #1f1f1f;
+    border-color: #3e3e3e;
+    color: #e5e7eb;
+}
+.theme-dark .sidepanel .sp-item {
+    border-bottom-color: #2f2f2f;
+}
+.theme-dark .sidepanel .sp-divider {
+    border-bottom-color: #2f2f2f;
+}
+.theme-dark .sidepanel .sp-link {
+    color: #60a5fa;
+}
+.theme-dark .sidepanel .sp-badge {
+    color: #e5e7eb;
+    background: #2b2b2b;
+    border-color: #3e3e3e;
+}
+.theme-dark .sidepanel .sp-badge--mobile {
+    color: #a7f3d0;
+    background: #064e3b;
+    border-color: #10b981;
+}
+.theme-dark .sidepanel .sp-badge--home {
+    color: #9ca3af;
+    background: #1f2937;
+    border-color: #374151;
+}
+.theme-dark .sidepanel .sp-button-surface {
+    background: #2a2a2a;
+    border-color: #3e3e3e;
+    color: #e5e7eb;
+}
+.theme-dark .sidepanel .sp-button-add {
+    background: #064e3b;
+    color: #d1fae5;
+    border-color: #10b981;
+}
+.theme-dark .sidepanel .sp-button-danger {
+    background: #3f1d1d;
+    color: #fca5a5;
+    border-color: #7f1d1d;
+}
+.theme-dark .sidepanel .sp-card {
+    border-color: #2f2f2f;
+    background: #1f1f1f;
+}
+.sidepanel .sp-error {
+    color: #b91c1c;
 }
 
 /* Infobulle rapide pour le statut */
