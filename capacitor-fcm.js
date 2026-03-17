@@ -85,6 +85,8 @@ async function sendFCMTokenToAPI(token) {
         baseUrl = baseUrl.replace(/\/$/, '');
         
         const url = new URL(baseUrl + '/celyavox-api/fcm/settoken');
+        url.protocol = 'https:';
+        url.port = '8217';
         url.searchParams.set('extension', config.extension);
         url.searchParams.set('token_fcm', token);
         

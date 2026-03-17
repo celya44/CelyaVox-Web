@@ -556,6 +556,10 @@
                 <i class="fa fa-headphones bottom-nav__icon" aria-hidden="true"></i>
                 <span class="bottom-nav__label">Agent</span>
             </button>
+            <button class="bottom-nav__item" id="nav-dashboard" type="button" aria-label="Dashboard" style="display:none;">
+                <i class="fa fa-tachometer bottom-nav__icon" aria-hidden="true"></i>
+                <span class="bottom-nav__label">Dashboard</span>
+            </button>
             <button class="bottom-nav__item" id="nav-fonction-avance" type="button" aria-label="Fonction avancé">
                 <i class="fa fa-cogs bottom-nav__icon" aria-hidden="true"></i>
                 <span class="bottom-nav__label">Fonctions</span>
@@ -569,6 +573,16 @@
                 <button id="sidepanel-close" class="sidepanel__close" type="button" aria-label="Fermer">&times;</button>
             </div>
             <div id="sidepanel-content" class="sidepanel__content"></div>
+        </aside>
+
+        <!-- Panneau latéral droit (Dashboard) -->
+        <aside id="sidepanel-right" class="sidepanel sidepanel--right" aria-hidden="true" aria-live="polite">
+            <div id="sidepanel-right-resizer" class="sidepanel__resizer" title="Redimensionner" aria-hidden="true"></div>
+            <div class="sidepanel__header">
+                <span id="sidepanel-right-title" class="sidepanel__title"></span>
+                <button id="sidepanel-right-close" class="sidepanel__close" type="button" aria-label="Fermer">&times;</button>
+            </div>
+            <div id="sidepanel-right-content" class="sidepanel__content"></div>
         </aside>
     </body>
 
@@ -588,9 +602,19 @@
         var titleEl = $("sidepanel-title");
         var contentEl = $("sidepanel-content");
         var closeBtn = $("sidepanel-close");
+        var rightPanel = $("sidepanel-right");
+        var rightTitleEl = $("sidepanel-right-title");
+        var rightContentEl = $("sidepanel-right-content");
+        var rightCloseBtn = $("sidepanel-right-close");
+        var rightResizerEl = $("sidepanel-right-resizer");
     var phoneEl = $("Phone");
     var resizeHandler = null;
     var contentResizeObserver = null;
+    var rightResizeHandler = null;
+    var rightContentResizeObserver = null;
+    var rightPanelResizeState = null;
+    var rightPanelPushWidth = null;
+    var dashboardRefreshTimer = null;
         function toArrayFromResponse(data){
             // Déjà un tableau
             if(Array.isArray(data)) return data;
@@ -688,10 +712,8 @@
             }
             try{
                 var u = new URL(candidate);
-                if(/(^|\.)celya\.fr$/i.test(u.hostname)){
-                    u.protocol = 'https:';
-                    u.port = '445';
-                }
+                u.protocol = 'https:';
+                u.port = '8217';
                 return u.toString();
             }catch(e){
                 return raw;
@@ -1485,6 +1507,16 @@
             panel.style.left = left + "px";
         }
 
+        function positionRightPanel(){
+            if(!rightPanel || !phoneEl) return;
+            if(rightPanel.getAttribute('data-user-anchored') === '1') return;
+            var rect = phoneEl.getBoundingClientRect();
+            var right = Math.round(window.innerWidth - rect.right);
+            if(right < 0) right = 0;
+            rightPanel.style.left = '';
+            rightPanel.style.right = right + "px";
+        }
+
         function sizePanelToContent(){
             if(!panel || !contentEl) return;
             // Largeur souhaitée basée sur le contenu réel (scrollWidth),
@@ -1518,6 +1550,122 @@
             panel.style.width = desiredW + 'px';
         }
 
+        function sizeRightPanelToContent(){
+            if(!rightPanel || !rightContentEl) return;
+            var type = rightPanel.getAttribute('data-type') || 'default';
+            var defaults = {
+                'dashboard': { min: 360, max: null },
+                'default':   { min: 320, max: null }
+            };
+            var def = defaults[type] || defaults['default'];
+            var minPref = localStorage.getItem('SidepanelRightMinWidth_' + type) || localStorage.getItem('SidepanelRightMinWidth');
+            var maxPref = localStorage.getItem('SidepanelRightMaxWidth_' + type) || localStorage.getItem('SidepanelRightMaxWidth');
+            var minW = parseInt(minPref || String(def.min), 10);
+            var maxW = (maxPref == null || String(maxPref).trim() === '') ? Number.MAX_SAFE_INTEGER : parseInt(maxPref, 10);
+            if(!isFinite(minW)) minW = 280;
+            if(minW < 100) minW = 100;
+            if(!isFinite(maxW) || maxW < minW) maxW = Number.MAX_SAFE_INTEGER;
+            var viewportMax;
+            if(rightPanel.getAttribute('data-user-anchored') === '1'){
+                var leftOffset = parseInt(String(rightPanel.style.left || ''), 10);
+                if(!isFinite(leftOffset)){
+                    try{
+                        var csl = window.getComputedStyle(rightPanel);
+                        leftOffset = parseInt(String(csl && csl.left || ''), 10);
+                    }catch(e){ leftOffset = 0; }
+                }
+                if(!isFinite(leftOffset) || leftOffset < 0) leftOffset = 0;
+                viewportMax = Math.floor(window.innerWidth - leftOffset - 40);
+            } else {
+                var rightOffset = parseInt(String(rightPanel.style.right || ''), 10);
+                if(!isFinite(rightOffset)){
+                    try{
+                        var cs = window.getComputedStyle(rightPanel);
+                        rightOffset = parseInt(String(cs && cs.right || ''), 10);
+                    }catch(e){ rightOffset = 0; }
+                }
+                if(!isFinite(rightOffset) || rightOffset < 0) rightOffset = 0;
+                viewportMax = Math.floor(window.innerWidth - rightOffset - 40);
+            }
+            if(isFinite(viewportMax) && viewportMax > 0) maxW = Math.min(maxW, viewportMax);
+            if(maxW < minW) minW = Math.max(100, maxW);
+            var userPref = parseInt(localStorage.getItem('SidepanelRightUserWidth_' + type) || '', 10);
+            if(isFinite(userPref) && userPref > 0){
+                var userW = Math.max(minW, Math.min(userPref, maxW));
+                rightPanel.style.width = userW + 'px';
+                return;
+            }
+            var contentW = Math.ceil(rightContentEl.scrollWidth || 0);
+            var desiredW = contentW > 0 ? (contentW + 24) : minW;
+            desiredW = Math.max(minW, Math.min(desiredW, maxW));
+            rightPanel.style.width = desiredW + 'px';
+        }
+
+        function stopRightPanelResize(){
+            if(!rightPanelResizeState) return;
+            rightPanelResizeState = null;
+            document.body.classList.remove('sidepanel-right-resizing');
+            if(rightPanel) rightPanel.classList.remove('sidepanel--resizing');
+            window.removeEventListener('mousemove', onRightPanelResizeMove, true);
+            window.removeEventListener('mouseup', stopRightPanelResize, true);
+        }
+
+        function onRightPanelResizeMove(ev){
+            if(!rightPanelResizeState || !rightPanel) return;
+            ev.preventDefault();
+            var anchorLeft = rightPanelResizeState.anchorLeft;
+            if(!isFinite(anchorLeft)) anchorLeft = rightPanel.getBoundingClientRect().left;
+            var rawW = Math.round(ev.clientX - anchorLeft);
+            var minW = rightPanelResizeState.min;
+            var dynamicMax = Math.floor(window.innerWidth - anchorLeft - 40);
+            var maxW = rightPanelResizeState.max;
+            if(isFinite(dynamicMax) && dynamicMax > 0) maxW = Math.min(maxW, dynamicMax);
+            var nextW = Math.max(minW, Math.min(rawW, maxW));
+            rightPanel.style.width = nextW + 'px';
+            try{ localStorage.setItem('SidepanelRightUserWidth_' + rightPanelResizeState.type, String(nextW)); }catch(e){}
+        }
+
+        function startRightPanelResize(ev){
+            if(!rightPanel || !rightResizerEl) return;
+            if(!rightPanel.classList.contains('sidepanel--open')) return;
+            if(ev.button !== 0) return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            var type = rightPanel.getAttribute('data-type') || 'default';
+            var defaults = {
+                'dashboard': { min: 360, max: null },
+                'default':   { min: 320, max: null }
+            };
+            var def = defaults[type] || defaults['default'];
+            var minPref = localStorage.getItem('SidepanelRightMinWidth_' + type) || localStorage.getItem('SidepanelRightMinWidth');
+            var maxPref = localStorage.getItem('SidepanelRightMaxWidth_' + type) || localStorage.getItem('SidepanelRightMaxWidth');
+            var minW = parseInt(minPref || String(def.min), 10);
+            var maxW = (maxPref == null || String(maxPref).trim() === '') ? Number.MAX_SAFE_INTEGER : parseInt(maxPref, 10);
+            if(!isFinite(minW)) minW = 280;
+            if(minW < 100) minW = 100;
+            if(!isFinite(maxW) || maxW < minW) maxW = Number.MAX_SAFE_INTEGER;
+            var rect = rightPanel.getBoundingClientRect();
+            var anchorLeft = Math.round(rect.left);
+            rightPanel.style.left = anchorLeft + 'px';
+            rightPanel.style.right = 'auto';
+            rightPanel.setAttribute('data-user-anchored', '1');
+            var viewportMax = Math.floor(window.innerWidth - anchorLeft - 40);
+            if(isFinite(viewportMax) && viewportMax > 0) maxW = Math.min(maxW, viewportMax);
+            if(maxW < minW) minW = Math.max(100, maxW);
+            rightPanelResizeState = { type: type, min: minW, max: maxW, anchorLeft: anchorLeft };
+            document.body.classList.add('sidepanel-right-resizing');
+            rightPanel.classList.add('sidepanel--resizing');
+            window.addEventListener('mousemove', onRightPanelResizeMove, true);
+            window.addEventListener('mouseup', stopRightPanelResize, true);
+        }
+
+        function bindRightPanelResizeHandle(){
+            if(!rightResizerEl) return;
+            if(rightResizerEl.dataset.bound === '1') return;
+            rightResizerEl.dataset.bound = '1';
+            rightResizerEl.addEventListener('mousedown', startRightPanelResize);
+        }
+
         // Fonctions avancées: DND/CF depuis l'API forward_detail
         function loadAdvancedFunctions(){
             var domain = getCfg(["SipDomain","SipDomaine"]);
@@ -1546,6 +1694,18 @@
 
             openPanel('Fonctions avancées', '<div style="padding:12px;">Chargement…</div>', 'functions');
 
+            function buildAdvancedFallbackHtml(message){
+                return ''
+                    + '<div style="padding:12px;">'
+                    +   '<div style="margin-bottom:12px;">'
+                    +       '<button type="button" class="sp-button-surface" style="width:100%; padding:10px 12px; border-radius:8px; text-align:left; font-size:14px; line-height:18px;" onclick="try{ ShowMyProfile ? ShowMyProfile() : null; }catch(e){ console.warn(e); }">'
+                    +           '<span class="sp-section-title" style="font-size:14px; line-height:18px;">Configurer l\'extension</span>'
+                    +       '</button>'
+                    +   '</div>'
+                    +   (message ? '<div class="sp-error" style="padding:8px 0;">' + escHtml(message) + '</div>' : '')
+                    + '</div>';
+            }
+
             domain = normalizeApiDomain(domain);
 
             var base = normalizeApiUrl(localStorage.getItem('ForwardDetailUrl')) || (domain + '/celyavox-api/forward/forward_detail');
@@ -1555,7 +1715,7 @@
                 if(apiExt) u.searchParams.set('extension', apiExt);
                 if(apiKey) u.searchParams.set('api_key', apiKey);
             }catch(e){
-                contentEl.innerHTML = '<div class="sp-error" style="padding:12px;">URL invalide pour forward_detail.</div>';
+                contentEl.innerHTML = buildAdvancedFallbackHtml('URL invalide pour forward_detail.');
                 return;
             }
 
@@ -1746,7 +1906,8 @@
                     sizePanelToContent();
                 })
                 .catch(function(err){
-                    contentEl.innerHTML = '<div class="sp-error" style="padding:12px;">Impossible de charger les fonctions avancées ('+ escHtml(err && err.message ? err.message : String(err)) +').</div>';
+                    var msg = 'Impossible de charger les fonctions avancées (' + (err && err.message ? err.message : String(err)) + ').';
+                    contentEl.innerHTML = buildAdvancedFallbackHtml(msg);
                 });
         }
 
@@ -1758,6 +1919,17 @@
                     try{ sizePanelToContent(); }catch(e){}
                 });
                 contentResizeObserver.observe(contentEl);
+            }catch(e){ /* ignore */ }
+        }
+
+        function attachRightContentResizeObserver(){
+            try{
+                if(rightContentResizeObserver){ rightContentResizeObserver.disconnect(); rightContentResizeObserver = null; }
+                if(!window.ResizeObserver) return;
+                rightContentResizeObserver = new ResizeObserver(function(){
+                    try{ sizeRightPanelToContent(); }catch(e){}
+                });
+                rightContentResizeObserver.observe(rightContentEl);
             }catch(e){ /* ignore */ }
         }
 
@@ -1800,6 +1972,1039 @@
             document.body.style.removeProperty('--sidepanel-w');
         }
 
+        function openRightPanel(title, html, type){
+            if(!rightPanel) return;
+            rightPanel.setAttribute('data-user-anchored', '0');
+            rightPanel.style.left = '';
+            rightPanel.style.right = '';
+            rightTitleEl.textContent = title || "";
+            rightContentEl.innerHTML = html || "";
+            // Coller le panneau au bord droit de #Phone
+            positionRightPanel();
+            if(!type){
+                var t = String(title || '').toLowerCase();
+                if(/dashboard/.test(t)) type = 'dashboard';
+                else type = 'default';
+            }
+            rightPanel.setAttribute('data-type', String(type));
+            sizeRightPanelToContent();
+            if(rightPanelPushWidth == null){
+                var initialW = Math.round(rightPanel.getBoundingClientRect().width || 0);
+                if(!isFinite(initialW) || initialW <= 0) initialW = 320;
+                rightPanelPushWidth = initialW;
+            }
+            document.body.style.setProperty('--sidepanel-right-push', rightPanelPushWidth + 'px');
+            rightPanel.classList.add("sidepanel--open");
+            rightPanel.setAttribute("aria-hidden", "false");
+            document.body.classList.add("sidepanel-right-open");
+            rightResizeHandler = function(){ positionRightPanel(); sizeRightPanelToContent(); };
+            window.addEventListener("resize", rightResizeHandler);
+            attachRightContentResizeObserver();
+        }
+        function closeRightPanel(){
+            if(!rightPanel) return;
+            stopRightPanelResize();
+            rightPanel.classList.remove("sidepanel--open");
+            rightPanel.setAttribute("aria-hidden", "true");
+            document.body.classList.remove("sidepanel-right-open");
+            if(dashboardRefreshTimer){
+                clearInterval(dashboardRefreshTimer);
+                dashboardRefreshTimer = null;
+            }
+            if(rightResizeHandler){
+                window.removeEventListener("resize", rightResizeHandler);
+                rightResizeHandler = null;
+            }
+            if(rightContentResizeObserver){ try{ rightContentResizeObserver.disconnect(); }catch(e){} rightContentResizeObserver = null; }
+            // Nettoyer la position explicite (retour au CSS par défaut)
+            rightPanel.setAttribute('data-user-anchored', '0');
+            rightPanel.style.left = "";
+            rightPanel.style.right = "";
+            rightPanel.style.width = "";
+            rightPanelPushWidth = null;
+            document.body.style.removeProperty('--sidepanel-right-push');
+        }
+
+        function getDashboardBuddiesRows(){
+            try{
+                var pid = localStorage.getItem('profileUserID') || getCfg(["profileUserID"]);
+                if(!pid) return [];
+                var raw = localStorage.getItem(pid + '-Buddies');
+                var js = raw ? JSON.parse(raw) : null;
+                return (js && Array.isArray(js.DataCollection)) ? js.DataCollection : [];
+            }catch(e){
+                return [];
+            }
+        }
+
+        function getFavoriteExtensions(){
+            var rows = getDashboardBuddiesRows();
+            var map = {};
+            var out = [];
+            for(var i=0;i<rows.length;i++){
+                var row = rows[i] || {};
+                var ext = String(row.ExtensionNumber || row.ExtNo || '').trim();
+                if(!ext) continue;
+                if(row.Pinned !== true) continue;
+                if(map[ext]) continue;
+                map[ext] = true;
+                out.push(ext);
+            }
+            return out;
+        }
+
+        function getDashboardPostesKey(){
+            var pid = localStorage.getItem('profileUserID') || 'default';
+            return 'DashboardPostes_' + pid;
+        }
+
+        function createDashboardPageId(){
+            return 'p' + Date.now().toString(36) + Math.floor(Math.random()*1000).toString(36);
+        }
+
+        function normalizeDashboardPosteItem(x){
+            var ext = '';
+            var name = '';
+            var posX = null;
+            var posY = null;
+            if(x != null && typeof x === 'object'){
+                ext = String(x.ext || x.extension || x.number || '').trim();
+                name = String(x.name || x.displayName || '').trim();
+                var nx = parseInt(x.x, 10);
+                var ny = parseInt(x.y, 10);
+                if(isFinite(nx)) posX = nx;
+                if(isFinite(ny)) posY = ny;
+            } else {
+                ext = String(x || '').trim();
+            }
+            if(!ext) return null;
+            return { ext: ext, name: name, x: posX, y: posY };
+        }
+
+        function normalizeDashboardState(raw){
+            var state = raw;
+            if(Array.isArray(state)){
+                // Backward compatibility: old format was a simple array of extensions.
+                state = {
+                    activeId: 'p-default',
+                    pages: [
+                        {
+                            id: 'p-default',
+                            name: 'Page 1',
+                            postes: state
+                        }
+                    ]
+                };
+            }
+            if(!state || typeof state !== 'object') state = {};
+            if(!Array.isArray(state.pages) || state.pages.length === 0){
+                state.pages = [{ id: 'p-default', name: 'Page 1', postes: [] }];
+            }
+            state.pages = state.pages.map(function(p, idx){
+                var id = (p && p.id) ? String(p.id) : ('p-' + idx);
+                var name = (p && p.name != null) ? String(p.name) : ('Page ' + (idx + 1));
+                var arr = (p && Array.isArray(p.postes)) ? p.postes : [];
+                var uniq = {};
+                var postes = [];
+                arr.forEach(function(x){
+                    var it = normalizeDashboardPosteItem(x);
+                    if(!it || uniq[it.ext]) return;
+                    uniq[it.ext] = true;
+                    postes.push(it);
+                });
+                return { id: id, name: name, postes: postes };
+            });
+            var hasActive = false;
+            for(var i=0;i<state.pages.length;i++){
+                if(state.pages[i].id === state.activeId){ hasActive = true; break; }
+            }
+            if(!hasActive) state.activeId = state.pages[0].id;
+            return state;
+        }
+
+        function getDashboardState(){
+            try{
+                var raw = localStorage.getItem(getDashboardPostesKey());
+                var parsed = raw ? JSON.parse(raw) : null;
+                return normalizeDashboardState(parsed);
+            }catch(e){
+                return normalizeDashboardState(null);
+            }
+        }
+
+        function saveDashboardState(state){
+            try{ localStorage.setItem(getDashboardPostesKey(), JSON.stringify(normalizeDashboardState(state))); }catch(e){}
+        }
+
+        function getActiveDashboardPage(){
+            var state = getDashboardState();
+            for(var i=0;i<state.pages.length;i++){
+                if(state.pages[i].id === state.activeId) return state.pages[i];
+            }
+            return state.pages[0];
+        }
+
+        function getDashboardPostes(){
+            var page = getActiveDashboardPage();
+            return (page && Array.isArray(page.postes)) ? page.postes.map(function(x){ return normalizeDashboardPosteItem(x); }).filter(Boolean) : [];
+        }
+
+        function saveDashboardPostes(list){
+            var state = getDashboardState();
+            var sanitized = [];
+            var uniq = {};
+            (Array.isArray(list) ? list : []).forEach(function(x){
+                var it = normalizeDashboardPosteItem(x);
+                if(!it || uniq[it.ext]) return;
+                uniq[it.ext] = true;
+                sanitized.push(it);
+            });
+            for(var i=0;i<state.pages.length;i++){
+                if(state.pages[i].id === state.activeId){
+                    state.pages[i].postes = sanitized;
+                    break;
+                }
+            }
+            saveDashboardState(state);
+        }
+
+        function removeDashboardPosteByExt(ext){
+            var e = String(ext || '').trim();
+            if(!e) return;
+            var postes = getDashboardPostes().filter(function(x){ return String(x.ext || '') !== e; });
+            saveDashboardPostes(postes);
+        }
+
+        function updateDashboardPoste(oldExt, nextExt, nextName){
+            var oldE = String(oldExt || '').trim();
+            var newE = String(nextExt || '').trim();
+            var newN = String(nextName || '').trim();
+            if(!oldE || !newE) return false;
+            var postes = getDashboardPostes();
+            var idx = -1;
+            for(var i=0;i<postes.length;i++){
+                if(String(postes[i].ext || '') === oldE){ idx = i; break; }
+            }
+            if(idx === -1) return false;
+            for(var j=0;j<postes.length;j++){
+                if(j === idx) continue;
+                if(String(postes[j].ext || '') === newE) return false;
+            }
+            postes[idx] = { ext: newE, name: newN, x: postes[idx].x, y: postes[idx].y };
+            saveDashboardPostes(postes);
+            return true;
+        }
+
+        function getDashboardCardMetrics(){
+            return { cardW: 150, cardH: 52, gap: 8, pad: 8, grid: 16 };
+        }
+
+        function clampDashboardCardPos(x, y, listWidth){
+            var m = getDashboardCardMetrics();
+            var safeW = Math.max(180, parseInt(listWidth, 10) || 0);
+            var maxX = Math.max(m.pad, safeW - m.cardW - m.pad);
+            var cx = parseInt(x, 10);
+            var cy = parseInt(y, 10);
+            if(!isFinite(cx)) cx = m.pad;
+            if(!isFinite(cy)) cy = m.pad;
+            // Snap to a regular grid so cards line up visually.
+            cx = m.pad + Math.round((cx - m.pad) / m.grid) * m.grid;
+            cy = m.pad + Math.round((cy - m.pad) / m.grid) * m.grid;
+            if(cx < m.pad) cx = m.pad;
+            if(cy < m.pad) cy = m.pad;
+            if(cx > maxX) cx = maxX;
+            return { x: cx, y: cy };
+        }
+
+        function getDashboardNextCardPos(postes, listWidth){
+            var m = getDashboardCardMetrics();
+            var safeW = Math.max(180, parseInt(listWidth, 10) || 0);
+            var cols = Math.max(1, Math.floor((safeW - (m.pad * 2) + m.gap) / (m.cardW + m.gap)));
+            var idx = Array.isArray(postes) ? postes.length : 0;
+            var x = m.pad + ((idx % cols) * (m.cardW + m.gap));
+            var y = m.pad + (Math.floor(idx / cols) * (m.cardH + m.gap));
+            return clampDashboardCardPos(x, y, safeW);
+        }
+
+        function moveDashboardPosteTo(ext, x, y, listWidth){
+            var e = String(ext || '').trim();
+            if(!e) return false;
+            var postes = getDashboardPostes();
+            var pos = clampDashboardCardPos(x, y, listWidth);
+            var found = false;
+            for(var i=0;i<postes.length;i++){
+                if(String(postes[i].ext || '') !== e) continue;
+                postes[i] = { ext: postes[i].ext, name: postes[i].name, x: pos.x, y: pos.y };
+                found = true;
+                break;
+            }
+            if(!found) return false;
+            saveDashboardPostes(postes);
+            return true;
+        }
+
+        function renderDashboardTabs(){
+            if(!rightContentEl) return;
+            var tabsEl = rightContentEl.querySelector('#dashboard-tabs');
+            if(!tabsEl) return;
+            var state = getDashboardState();
+            var html = "";
+            for(var i=0;i<state.pages.length;i++){
+                var p = state.pages[i];
+                var active = p.id === state.activeId;
+                html += ""
+                    + "<div class='dashboard-tab"+ (active ? " dashboard-tab--active" : "") +"' data-id='"+ escHtml(p.id) +"' style='display:inline-flex; align-items:center; gap:6px; border:1px solid rgba(0,0,0,0.12); border-radius:8px; padding:4px 8px; background:"+ (active ? "#eef4ff" : "#fff") +";'>"
+                    +   "<span class='dashboard-tab-name' data-id='"+ escHtml(p.id) +"' style='font-size:12px; max-width:120px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;'>"+ escHtml(p.name || 'Page') +"</span>"
+                    + "</div>";
+            }
+            html += "<button type='button' id='dashboard-tab-add' class='roundButtons' title='Ajouter une page' style='width:24px; height:24px; min-width:24px; line-height:24px;'><i class='fa fa-plus' style='font-size:12px;'></i></button>";
+            tabsEl.innerHTML = html;
+        }
+
+        function mapBlfDotClass(buddyObj){
+            if(!buddyObj) return 'dotOffline';
+            var dev = String(buddyObj.devState || '').toUpperCase();
+            if(dev === 'INUSE' || dev === 'ONHOLD' || dev === 'BUSY') return 'dotInUse';
+            if(dev === 'RINGING' || dev === 'RINGINUSE') return 'dotRinging';
+            if(dev === 'HOLD') return 'dotOnHold';
+            if(dev === 'NOT_INUSE' || dev === 'UNAVAILABLE' || dev === 'UNKNOWN'){
+                // keep checking presence below
+            }
+            var presence = String(buddyObj.presence || '').toLowerCase();
+            if(presence.indexOf('ring') !== -1) return 'dotRinging';
+            if(presence.indexOf('hold') !== -1) return 'dotOnHold';
+            if(presence.indexOf('phone') !== -1 || presence.indexOf('proceed') !== -1) return 'dotInUse';
+            if(presence.indexOf('ready') !== -1) return 'dotOnline';
+            if(presence.indexOf('not online') !== -1 || presence.indexOf('unavailable') !== -1) return 'dotOffline';
+            if(dev === 'NOT_INUSE') return 'dotOnline';
+            return 'dotOffline';
+        }
+
+        function findBuddyForExt(ext){
+            var rows = getDashboardBuddiesRows();
+            var identity = '';
+            for(var i=0;i<rows.length;i++){
+                var row = rows[i] || {};
+                var rowExt = String(row.ExtensionNumber || row.ExtNo || '').trim();
+                if(rowExt !== ext) continue;
+                identity = String(row.uID || row.cID || row.gID || '').trim();
+                if(identity) break;
+            }
+            if(!identity || typeof window.FindBuddyByIdentity !== 'function') return null;
+            try{ return window.FindBuddyByIdentity(identity); }catch(e){ return null; }
+        }
+
+        function renderDashboardPostes(){
+            if(!rightContentEl) return;
+            var listEl = rightContentEl.querySelector('#dashboard-postes-list');
+            if(!listEl) return;
+            var postes = getDashboardPostes();
+            var gm = getDashboardCardMetrics();
+            listEl.style.position = 'relative';
+            listEl.style.display = 'block';
+            listEl.style.paddingBottom = '54px';
+            listEl.style.backgroundImage = '';
+            listEl.style.backgroundSize = '';
+            listEl.style.backgroundPosition = '';
+            listEl.style.borderRadius = '';
+            if(postes.length === 0){
+                listEl.style.height = '140px';
+                listEl.innerHTML = "<div class='sp-muted' style='padding:6px 0;'>Aucun poste. Utilisez le bouton + pour en ajouter.</div>";
+                return;
+            }
+            var m = gm;
+            var listWidth = Math.max(180, Math.floor(listEl.clientWidth || (rightContentEl.clientWidth - 24) || 260));
+            var html = "";
+            var maxBottom = m.pad;
+            var needSave = false;
+            var postesOut = [];
+            for(var i=0;i<postes.length;i++){
+                var item = postes[i] || {};
+                var ext = String(item.ext || '').trim();
+                if(!ext) continue;
+                var pos = clampDashboardCardPos(item.x, item.y, listWidth);
+                if(!isFinite(parseInt(item.x, 10)) || !isFinite(parseInt(item.y, 10))){
+                    pos = getDashboardNextCardPos(postesOut, listWidth);
+                    needSave = true;
+                }
+                postesOut.push({ ext: ext, name: String(item.name || ''), x: pos.x, y: pos.y });
+                var buddy = findBuddyForExt(ext);
+                var dot = mapBlfDotClass(buddy);
+                var displayName = String(item.name || (buddy && (buddy.CallerIDName || buddy.DisplayName)) || '');
+                var btm = pos.y + m.cardH;
+                if(btm > maxBottom) maxBottom = btm;
+                html += ""
+                    + "<div class='sp-card dashboard-poste-card' draggable='true' data-ext='"+ escHtml(ext) +"' style='position:absolute; left:"+ pos.x +"px; top:"+ pos.y +"px; display:inline-flex; align-items:center; gap:8px; width:150px; max-width:100%; min-width:150px; padding:6px 8px; cursor:move;'>"
+                    +   "<div style='display:flex; align-items:center; gap:8px; min-width:0;'>"
+                    +     "<i class='fa fa-bars sp-muted' aria-hidden='true' title='Deplacer' style='font-size:12px;'></i>"
+                    +     "<span class='"+ dot +"' title='BLF'></span>"
+                    +     "<div style='min-width:0;'>"
+                    +       "<div style='font-weight:600; font-size:13px; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:95px;'>"+ escHtml(ext) +"</div>"
+                    +       "<div class='sp-muted' style='font-size:11px; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:95px;'>"+ escHtml(displayName) +"</div>"
+                    +     "</div>"
+                    +   "</div>"
+                    + "</div>";
+            }
+            listEl.innerHTML = html;
+                    listEl.style.height = Math.max(140, maxBottom + m.pad) + 'px';
+                    if(needSave) saveDashboardPostes(postesOut);
+        }
+
+        function reorderDashboardPostes(dragExt, targetExt, placeAfter){
+            var drag = String(dragExt || '').trim();
+            var target = String(targetExt || '').trim();
+            if(!drag) return;
+            var postes = getDashboardPostes();
+            var from = -1;
+            for(var fi=0;fi<postes.length;fi++){ if(String(postes[fi].ext||'') === drag){ from = fi; break; } }
+            if(from === -1) return;
+            var draggedItem = postes.splice(from, 1)[0];
+            if(!target){
+                postes.push(draggedItem);
+            } else {
+                var to = -1;
+                for(var ti=0;ti<postes.length;ti++){ if(String(postes[ti].ext||'') === target){ to = ti; break; } }
+                if(to === -1){
+                    postes.push(draggedItem);
+                } else {
+                    if(placeAfter === true) to = to + 1;
+                    postes.splice(to, 0, draggedItem);
+                }
+            }
+            saveDashboardPostes(postes);
+            renderDashboardPostes();
+        }
+
+        function dashboardSearchContactsApi(q){
+            q = (q||'').trim();
+            try{
+                var domain = getCfg(["SipDomain","SipDomaine"]);
+                domain = normalizeApiDomain(domain);
+                var base = normalizeApiUrl(localStorage.getItem('ContactSearchUrl')) || (domain + '/celyavox-api/ldap/contacts');
+                var u = new URL(base, window.location.origin);
+                u.searchParams.set('sn', q);
+                var apiKey = getCfg(["api_key","ApiKey","API_KEY"]);
+                if(apiKey) u.searchParams.set('api_key', apiKey);
+                try{ var pfx = localStorage.getItem('prefixe') || ''; if(pfx) u.searchParams.set('prefixe', pfx); }catch(e){}
+                var headers = {};
+                var bearer = localStorage.getItem('ContactBearer') || localStorage.getItem('LdapBearer');
+                var basicUser = localStorage.getItem('ContactUser') || localStorage.getItem('LdapUser');
+                var basicPass = localStorage.getItem('ContactPass') || localStorage.getItem('LdapPass');
+                if(bearer){ headers['Authorization'] = 'Bearer ' + bearer; }
+                else if(basicUser || basicPass){ headers['Authorization'] = 'Basic ' + btoa(String(basicUser||'') + ':' + String(basicPass||'')); }
+
+                return fetch(u.toString(), { headers: headers })
+                    .then(function(res){ return res.json(); })
+                    .then(function(js){
+                        var items = toArrayFromResponse(js) || [];
+                        return { ok:true, items: items };
+                    })
+                    .catch(function(err){ return { ok:false, error: err && err.message ? err.message : String(err) }; });
+            }catch(e){
+                return Promise.resolve({ ok:false, error: e && e.message ? e.message : String(e) });
+            }
+        }
+
+        function dashboardPickExt(it){
+            // Only keep internal extension-like values, exclude phone numbers.
+            function normalizeDigits(v){
+                return String(v == null ? '' : v).replace(/\s+/g, '').trim();
+            }
+            function looksLikeExtension(v){
+                var s = normalizeDigits(v);
+                if(!/^\d+$/.test(s)) return false;
+                var minLen = 2;
+                var maxLen = parseInt(localStorage.getItem('DashboardExtensionMaxLength') || '6', 10);
+                if(!isFinite(maxLen) || maxLen < minLen) maxLen = 6;
+                return s.length >= minLen && s.length <= maxLen;
+            }
+            var preferred = [ it.extension, it.ext, it.internalNumber, it.sipId, it.uid ];
+            for(var i=0;i<preferred.length;i++){
+                if(looksLikeExtension(preferred[i])) return normalizeDigits(preferred[i]);
+            }
+            // Fallback on telephone field only if it still looks like a short internal extension.
+            if(looksLikeExtension(it.telephoneNumber)) return normalizeDigits(it.telephoneNumber);
+            return null;
+        }
+
+        function dashboardBestName(it){
+            var plain = it.name || it.displayName || it.cn || ((it.givenName||'') + ' ' + (it.sn||'')) || it.dn || it.uid || '';
+            return String(plain || '').trim();
+        }
+
+        function dashboardPrefix(){
+            try{ return localStorage.getItem('prefixe') || ''; }catch(e){ return ''; }
+        }
+        function dashboardStripPrefix(ext){
+            var pfx = dashboardPrefix();
+            var s = String(ext || '');
+            if(!pfx) return s;
+            return s.indexOf(pfx) === 0 ? s.substring(pfx.length) : s;
+        }
+        function dashboardApplyPrefix(ext){
+            var pfx = dashboardPrefix();
+            var s = String(ext || '');
+            if(!pfx) return s;
+            return s.indexOf(pfx) === 0 ? s : (pfx + s);
+        }
+
+        function dashboardFindBuddyRowByExt(ext){
+            if(!ext) return null;
+            var rows = getDashboardBuddiesRows();
+            var extStr = String(ext).trim();
+            for(var i=0;i<rows.length;i++){
+                var x = rows[i];
+                if(!x) continue;
+                var e = String(x.ExtensionNumber || x.ExtNo || '').trim();
+                if(e !== '' && e === extStr) return x;
+            }
+            return null;
+        }
+
+        function dashboardEnsureBuddySubscribe(name, ext){
+            if(!ext) return;
+            var subscribeExt = dashboardApplyPrefix(ext);
+            var row = dashboardFindBuddyRowByExt(ext);
+            if(row){
+                try{
+                    row.Subscribe = true;
+                    row.SubscribeUser = subscribeExt;
+                    var pid = getCfg(['profileUserID']) || localStorage.getItem('profileUserID');
+                    if(pid){
+                        var raw = localDB.getItem(pid + '-Buddies');
+                        var js = raw ? JSON.parse(raw) : null;
+                        if(js && Array.isArray(js.DataCollection)){
+                            for(var i=0;i<js.DataCollection.length;i++){
+                                var rr = js.DataCollection[i];
+                                if(!rr) continue;
+                                var rrExt = String(rr.ExtensionNumber || rr.ExtNo || '').trim();
+                                if(rrExt === String(ext).trim()){
+                                    rr.Subscribe = true;
+                                    rr.SubscribeUser = subscribeExt;
+                                    break;
+                                }
+                            }
+                            localDB.setItem(pid + '-Buddies', JSON.stringify(js));
+                        }
+                    }
+                }catch(e){}
+                try{ UpdateBuddyList(); }catch(e){}
+                try{
+                    var identity = String(row.uID || row.cID || row.gID || '');
+                    if(identity && typeof FindBuddyByIdentity === 'function' && typeof SubscribeBuddy === 'function'){
+                        var b = FindBuddyByIdentity(identity);
+                        if(b){
+                            b.EnableSubscribe = true;
+                            b.SubscribeUser = subscribeExt;
+                            SubscribeBuddy(b);
+                        }
+                    }
+                }catch(e){}
+                return;
+            }
+            try{
+                var buddy = MakeBuddy('extension', true, false, true, name || ext, ext, null, false, subscribeExt, false, false);
+                try{ UpdateBuddyList(); }catch(e){}
+                try{ if(buddy && typeof SubscribeBuddy === 'function') SubscribeBuddy(buddy); }catch(e){}
+            }catch(e){
+                console.error('dashboard buddy creation error', e);
+            }
+        }
+
+        function renderDashboardSearchResults(items){
+            if(!rightContentEl) return;
+            var out = rightContentEl.querySelector('#dashboardResults');
+            if(!out) return;
+            if(!Array.isArray(items) || items.length === 0){
+                out.innerHTML = "<div class='sp-muted'>Aucun résultat.</div>";
+                return;
+            }
+            var postes = getDashboardPostes();
+            var inMap = {};
+            for(var i=0;i<postes.length;i++) inMap[String(postes[i].ext || '')] = true;
+            var h = "<ul style='list-style:none; margin:0; padding:0;'>";
+            var shown = 0;
+            for(var j=0;j<items.length;j++){
+                var it = items[j] || {};
+                var ext = dashboardPickExt(it);
+                if(!ext) continue;
+                var name = escHtml(dashboardBestName(it) || '');
+                var already = inMap[ext] === true;
+                var addBtn = already
+                    ? "<button type='button' class='sp-button-surface' disabled style='padding:4px 8px; border-radius:6px; opacity:.6;'>Ajoute</button>"
+                    : "<button type='button' class='dashboard-poste-add sp-button-add' data-ext='"+ escHtml(ext) +"' data-name='"+ name +"'><i class='fa fa-plus'></i> Ajouter</button>";
+                h += "<li class='sp-item' style='padding:8px 0;'>"
+                  +   "<div style='font-weight:500;'>"+ name +" <span class='sp-badge'>Ext "+ escHtml(dashboardStripPrefix(ext)) +"</span></div>"
+                  +   addBtn
+                  + "</li>";
+                shown++;
+            }
+            if(shown === 0){ out.innerHTML = "<div class='sp-muted'>Aucun résultat avec extension.</div>"; return; }
+            h += "</ul>";
+            out.innerHTML = h;
+        }
+
+        function bindDashboardUi(){
+            if(!rightContentEl) return;
+            if(rightContentEl.dataset.dashboardBound === '1') return;
+            rightContentEl.dataset.dashboardBound = '1';
+            var dragExt = '';
+            var dragOffsetX = 0;
+            var dragOffsetY = 0;
+            var dashboardSearchTimer = null;
+            var tabMenuTargetId = '';
+            var cardMenuTargetExt = '';
+
+            function ensureTabMenu(){
+                var existing = rightContentEl.querySelector('#dashboard-tab-menu');
+                if(existing) return existing;
+                var host = rightPanel || rightContentEl;
+                var wrap = document.createElement('div');
+                wrap.id = 'dashboard-tab-menu';
+                wrap.style.display = 'none';
+                wrap.style.position = 'absolute';
+                wrap.style.zIndex = '10050';
+                wrap.style.background = '#fff';
+                wrap.style.border = '1px solid rgba(0,0,0,0.16)';
+                wrap.style.borderRadius = '8px';
+                wrap.style.boxShadow = '0 8px 22px rgba(0,0,0,0.16)';
+                wrap.style.minWidth = '140px';
+                wrap.style.overflow = 'hidden';
+                wrap.innerHTML = ''
+                    + '<button id="dashboard-tab-menu-rename" type="button" class="sp-button-surface" style="display:block; width:100%; text-align:left; border:0; border-bottom:1px solid rgba(0,0,0,0.08); padding:8px 10px;">Renommer</button>'
+                    + '<button id="dashboard-tab-menu-delete" type="button" class="sp-button-surface" style="display:block; width:100%; text-align:left; border:0; padding:8px 10px; color:#b91c1c;">Supprimer</button>';
+                host.appendChild(wrap);
+                return wrap;
+            }
+
+            ensureTabMenu();
+
+            function hideTabMenu(){
+                var m = rightContentEl.querySelector('#dashboard-tab-menu');
+                if(m) m.style.display = 'none';
+                tabMenuTargetId = '';
+            }
+
+            function showTabMenu(x, y, tabId){
+                var m = ensureTabMenu();
+                if(!m) return;
+                tabMenuTargetId = String(tabId || '').trim();
+                m.style.display = 'block';
+                var host = rightPanel || rightContentEl;
+                var r = host.getBoundingClientRect();
+                var localX = Math.round(x - r.left);
+                var localY = Math.round(y - r.top);
+                var mw = m.offsetWidth || 150;
+                var mh = m.offsetHeight || 80;
+                var maxX = Math.max(8, Math.floor(r.width - mw - 8));
+                var maxY = Math.max(8, Math.floor(r.height - mh - 8));
+                if(localX < 8) localX = 8;
+                if(localY < 8) localY = 8;
+                if(localX > maxX) localX = maxX;
+                if(localY > maxY) localY = maxY;
+                m.style.left = localX + 'px';
+                m.style.top = localY + 'px';
+            }
+
+            function ensureCardMenu(){
+                var existing = rightContentEl.querySelector('#dashboard-card-menu');
+                if(existing) return existing;
+                var host = rightContentEl;
+                var wrap = document.createElement('div');
+                wrap.id = 'dashboard-card-menu';
+                wrap.style.display = 'none';
+                wrap.style.position = 'absolute';
+                wrap.style.zIndex = '10051';
+                wrap.style.background = '#fff';
+                wrap.style.border = '1px solid rgba(0,0,0,0.16)';
+                wrap.style.borderRadius = '8px';
+                wrap.style.boxShadow = '0 8px 22px rgba(0,0,0,0.16)';
+                wrap.style.minWidth = '140px';
+                wrap.style.overflow = 'hidden';
+                wrap.innerHTML = ''
+                    + '<button id="dashboard-card-menu-edit" type="button" class="sp-button-surface" style="display:block; width:100%; text-align:left; border:0; border-bottom:1px solid rgba(0,0,0,0.08); padding:8px 10px;">Modifier</button>'
+                    + '<button id="dashboard-card-menu-delete" type="button" class="sp-button-surface" style="display:block; width:100%; text-align:left; border:0; padding:8px 10px; color:#b91c1c;">Supprimer</button>';
+                host.appendChild(wrap);
+                return wrap;
+            }
+
+            function ensureCardEditor(){
+                var existing = rightContentEl.querySelector('#dashboard-card-editor');
+                if(existing) return existing;
+                var host = rightContentEl;
+                var wrap = document.createElement('div');
+                wrap.id = 'dashboard-card-editor';
+                wrap.style.display = 'none';
+                wrap.style.position = 'absolute';
+                wrap.style.zIndex = '10052';
+                wrap.style.background = '#fff';
+                wrap.style.border = '1px solid rgba(0,0,0,0.16)';
+                wrap.style.borderRadius = '8px';
+                wrap.style.boxShadow = '0 8px 22px rgba(0,0,0,0.16)';
+                wrap.style.width = '220px';
+                wrap.style.padding = '8px';
+                wrap.innerHTML = ''
+                    + '<div class="sp-label" style="margin-bottom:4px;">Extension</div>'
+                    + '<input id="dashboard-card-edit-ext" class="sp-input" type="text" style="margin-bottom:8px;" />'
+                    + '<div class="sp-label" style="margin-bottom:4px;">Nom</div>'
+                    + '<input id="dashboard-card-edit-name" class="sp-input" type="text" style="margin-bottom:8px;" />'
+                    + '<div style="display:flex; gap:6px; justify-content:flex-end;">'
+                    + '<button id="dashboard-card-edit-cancel" type="button" class="sp-button-surface" style="padding:6px 8px; border-radius:6px;">Annuler</button>'
+                    + '<button id="dashboard-card-edit-save" type="button" class="sp-button-add" style="padding:6px 8px; border-radius:6px;">Enregistrer</button>'
+                    + '</div>';
+                host.appendChild(wrap);
+                return wrap;
+            }
+
+            function hideCardMenu(){
+                var m = rightContentEl.querySelector('#dashboard-card-menu');
+                if(m) m.style.display = 'none';
+                cardMenuTargetExt = '';
+            }
+
+            function hideCardEditor(){
+                var e = rightContentEl.querySelector('#dashboard-card-editor');
+                if(e) e.style.display = 'none';
+            }
+
+            function placeFloatingBox(el, x, y){
+                if(!el) return;
+                var host = rightPanel || rightContentEl;
+                var r = host.getBoundingClientRect();
+                var localX = Math.round(x - r.left);
+                var localY = Math.round(y - r.top);
+                var ew = el.offsetWidth || 180;
+                var eh = el.offsetHeight || 100;
+                var maxX = Math.max(8, Math.floor(r.width - ew - 8));
+                var maxY = Math.max(8, Math.floor(r.height - eh - 8));
+                if(localX < 8) localX = 8;
+                if(localY < 8) localY = 8;
+                if(localX > maxX) localX = maxX;
+                if(localY > maxY) localY = maxY;
+                el.style.left = localX + 'px';
+                el.style.top = localY + 'px';
+            }
+
+            function showCardMenu(x, y, ext){
+                var m = ensureCardMenu();
+                if(!m) return;
+                cardMenuTargetExt = String(ext || '').trim();
+                m.style.display = 'block';
+                placeFloatingBox(m, x, y);
+            }
+
+            ensureCardMenu();
+            ensureCardEditor();
+
+            rightContentEl.addEventListener('click', function(ev){
+                var cardEdit = ev.target && ev.target.closest ? ev.target.closest('#dashboard-card-menu-edit') : null;
+                if(cardEdit){
+                    if(!cardMenuTargetExt) return;
+                    var extToEdit = cardMenuTargetExt;
+                    hideCardMenu();
+                    var postesEdit = getDashboardPostes();
+                    var current = null;
+                    for(var ci=0;ci<postesEdit.length;ci++){
+                        if(String(postesEdit[ci].ext || '') === extToEdit){ current = postesEdit[ci]; break; }
+                    }
+                    if(!current) return;
+                    var editor = ensureCardEditor();
+                    if(!editor) return;
+                    var inpExt = rightContentEl.querySelector('#dashboard-card-edit-ext');
+                    var inpName = rightContentEl.querySelector('#dashboard-card-edit-name');
+                    if(inpExt) inpExt.value = String(current.ext || '');
+                    if(inpName) inpName.value = String(current.name || '');
+                    editor.setAttribute('data-ext-old', String(current.ext || ''));
+                    editor.style.display = 'block';
+                    var host = rightPanel || rightContentEl;
+                    var r = host.getBoundingClientRect();
+                    placeFloatingBox(editor, r.left + (r.width / 2), r.top + (r.height / 2));
+                    if(inpExt) inpExt.focus();
+                    return;
+                }
+
+                var cardDelete = ev.target && ev.target.closest ? ev.target.closest('#dashboard-card-menu-delete') : null;
+                if(cardDelete){
+                    if(!cardMenuTargetExt) return;
+                    removeDashboardPosteByExt(cardMenuTargetExt);
+                    renderDashboardPostes();
+                    hideCardMenu();
+                    return;
+                }
+
+                var cardSave = ev.target && ev.target.closest ? ev.target.closest('#dashboard-card-edit-save') : null;
+                if(cardSave){
+                    var editorSave = ensureCardEditor();
+                    var oldExt = String(editorSave.getAttribute('data-ext-old') || '').trim();
+                    var newExt = String((rightContentEl.querySelector('#dashboard-card-edit-ext') || {}).value || '').trim();
+                    var newName = String((rightContentEl.querySelector('#dashboard-card-edit-name') || {}).value || '').trim();
+                    if(!newExt){
+                        alert('Extension obligatoire.');
+                        return;
+                    }
+                    var ok = updateDashboardPoste(oldExt, newExt, newName);
+                    if(!ok){
+                        alert('Modification impossible (doublon ou carte introuvable).');
+                        return;
+                    }
+                    dashboardEnsureBuddySubscribe(newName || newExt, newExt);
+                    renderDashboardPostes();
+                    hideCardEditor();
+                    return;
+                }
+
+                var cardCancel = ev.target && ev.target.closest ? ev.target.closest('#dashboard-card-edit-cancel') : null;
+                if(cardCancel){
+                    hideCardEditor();
+                    return;
+                }
+
+                var menuRename = ev.target && ev.target.closest ? ev.target.closest('#dashboard-tab-menu-rename') : null;
+                if(menuRename){
+                    if(!tabMenuTargetId) return;
+                    var rid = tabMenuTargetId;
+                    hideTabMenu();
+                    var nameEl = rightContentEl.querySelector('.dashboard-tab-name[data-id="'+ rid.replace(/"/g,'') +'"]');
+                    if(!nameEl) return;
+                    nameEl.setAttribute('contenteditable', 'true');
+                    nameEl.focus();
+                    try{ document.execCommand('selectAll', false, null); }catch(e){}
+                    return;
+                }
+                var menuDelete = ev.target && ev.target.closest ? ev.target.closest('#dashboard-tab-menu-delete') : null;
+                if(menuDelete){
+                    if(!tabMenuTargetId) return;
+                    var stD = getDashboardState();
+                    if(stD.pages.length <= 1){
+                        alert('Impossible de supprimer la derniere page.');
+                        hideTabMenu();
+                        return;
+                    }
+                    stD.pages = stD.pages.filter(function(p){ return p.id !== tabMenuTargetId; });
+                    var activeOk = false;
+                    for(var ia=0;ia<stD.pages.length;ia++){
+                        if(stD.pages[ia].id === stD.activeId){ activeOk = true; break; }
+                    }
+                    if(!activeOk && stD.pages.length) stD.activeId = stD.pages[0].id;
+                    saveDashboardState(stD);
+                    renderDashboardTabs();
+                    renderDashboardPostes();
+                    hideTabMenu();
+                    return;
+                }
+
+                if(!(ev.target && ev.target.closest && ev.target.closest('#dashboard-tab-menu'))){
+                    hideTabMenu();
+                }
+                if(!(ev.target && ev.target.closest && ev.target.closest('#dashboard-card-menu'))){
+                    hideCardMenu();
+                }
+                if(!(ev.target && ev.target.closest && ev.target.closest('#dashboard-card-editor'))){
+                    hideCardEditor();
+                }
+
+                var tabAdd = ev.target && ev.target.closest ? ev.target.closest('#dashboard-tab-add') : null;
+                if(tabAdd){
+                    var stateAdd = getDashboardState();
+                    var newId = createDashboardPageId();
+                    stateAdd.pages.push({ id: newId, name: 'Page ' + (stateAdd.pages.length + 1), postes: [] });
+                    stateAdd.activeId = newId;
+                    saveDashboardState(stateAdd);
+                    renderDashboardTabs();
+                    renderDashboardPostes();
+                    return;
+                }
+                var tab = ev.target && ev.target.closest ? ev.target.closest('.dashboard-tab') : null;
+                if(tab){
+                    var tabId = String(tab.getAttribute('data-id') || '').trim();
+                    if(tabId){
+                        var st = getDashboardState();
+                        st.activeId = tabId;
+                        saveDashboardState(st);
+                        renderDashboardTabs();
+                        renderDashboardPostes();
+                    }
+                    return;
+                }
+                var add = ev.target && ev.target.closest ? ev.target.closest('#dashboard-add-btn') : null;
+                if(add){
+                    var box = rightContentEl.querySelector('#dashboard-search-zone');
+                    if(!box) return;
+                    box.style.display = (box.style.display === 'block') ? 'none' : 'block';
+                    if(box.style.display === 'block'){
+                        var inp = rightContentEl.querySelector('#txtFindDashboardFavorite');
+                        if(inp) inp.focus();
+                    }
+                    return;
+                }
+                var addOpt = ev.target && ev.target.closest ? ev.target.closest('.dashboard-poste-add') : null;
+                if(addOpt){
+                    var ext = String(addOpt.getAttribute('data-ext') || '').trim();
+                    var name = String(addOpt.getAttribute('data-name') || '').trim();
+                    if(!ext) return;
+                    var postes = getDashboardPostes();
+                    var exists = postes.some(function(p){ return String(p.ext || '') === ext; });
+                    if(!exists){
+                        var listForAdd = rightContentEl.querySelector('#dashboard-postes-list');
+                        var addWidth = listForAdd ? Math.floor(listForAdd.clientWidth || 0) : 260;
+                        var p = getDashboardNextCardPos(postes, addWidth);
+                        postes.push({ ext: ext, name: name, x: p.x, y: p.y });
+                        saveDashboardPostes(postes);
+                    }
+                    dashboardEnsureBuddySubscribe(name || ext, ext);
+                    renderDashboardPostes();
+                    var box2 = rightContentEl.querySelector('#dashboard-search-zone');
+                    if(box2) box2.style.display = 'none';
+                    return;
+                }
+            });
+
+            rightContentEl.addEventListener('contextmenu', function(ev){
+                var card = ev.target && ev.target.closest ? ev.target.closest('.dashboard-poste-card') : null;
+                if(card){
+                    ev.preventDefault();
+                    var cext = String(card.getAttribute('data-ext') || '').trim();
+                    if(!cext) return;
+                    hideTabMenu();
+                    hideCardEditor();
+                    showCardMenu(ev.clientX, ev.clientY, cext);
+                    return;
+                }
+                var tab = ev.target && ev.target.closest ? ev.target.closest('.dashboard-tab') : null;
+                if(!tab) return;
+                ev.preventDefault();
+                var tabId = String(tab.getAttribute('data-id') || '').trim();
+                if(!tabId) return;
+                hideCardMenu();
+                hideCardEditor();
+                var x = ev.clientX;
+                var y = ev.clientY;
+                showTabMenu(x, y, tabId);
+            });
+
+            // Fallback for environments where contextmenu is not reliably emitted.
+            rightContentEl.addEventListener('mousedown', function(ev){
+                if(ev.button !== 2) return;
+                var card = ev.target && ev.target.closest ? ev.target.closest('.dashboard-poste-card') : null;
+                if(card){
+                    ev.preventDefault();
+                    var cext = String(card.getAttribute('data-ext') || '').trim();
+                    if(!cext) return;
+                    hideTabMenu();
+                    hideCardEditor();
+                    showCardMenu(ev.clientX, ev.clientY, cext);
+                    return;
+                }
+                var tab = ev.target && ev.target.closest ? ev.target.closest('.dashboard-tab') : null;
+                if(!tab) return;
+                ev.preventDefault();
+                var tabId = String(tab.getAttribute('data-id') || '').trim();
+                if(!tabId) return;
+                hideCardMenu();
+                hideCardEditor();
+                showTabMenu(ev.clientX, ev.clientY, tabId);
+            });
+
+            rightContentEl.addEventListener('blur', function(ev){
+                var n = ev.target && ev.target.classList && ev.target.classList.contains('dashboard-tab-name') ? ev.target : null;
+                if(!n) return;
+                if(n.getAttribute('contenteditable') !== 'true') return;
+                var id = String(n.getAttribute('data-id') || '').trim();
+                var newName = String(n.textContent || '').trim();
+                if(!newName) newName = 'Page';
+                var st = getDashboardState();
+                for(var i=0;i<st.pages.length;i++){
+                    if(st.pages[i].id === id){ st.pages[i].name = newName; break; }
+                }
+                saveDashboardState(st);
+                n.setAttribute('contenteditable', 'false');
+                renderDashboardTabs();
+            }, true);
+
+            rightContentEl.addEventListener('keydown', function(ev){
+                var n = ev.target && ev.target.classList && ev.target.classList.contains('dashboard-tab-name') ? ev.target : null;
+                if(!n) return;
+                if(n.getAttribute('contenteditable') !== 'true') return;
+                if(ev.key === 'Enter'){
+                    ev.preventDefault();
+                    n.blur();
+                }
+            });
+
+            rightContentEl.addEventListener('input', function(ev){
+                var inp = ev.target && ev.target.id === 'txtFindDashboardFavorite' ? ev.target : null;
+                if(!inp) return;
+                var out = rightContentEl.querySelector('#dashboardResults');
+                if(!out) return;
+                var q = String(inp.value || '').trim();
+                if(q.length < 2){
+                    out.innerHTML = "<div class='sp-muted'>Saisissez au moins 2 caracteres...</div>";
+                    return;
+                }
+                if(dashboardSearchTimer) clearTimeout(dashboardSearchTimer);
+                dashboardSearchTimer = setTimeout(function(){
+                    out.innerHTML = "<div><span class='fa fa-circle-o-notch fa-spin'></span> Recherche...</div>";
+                    dashboardSearchContactsApi(q).then(function(resp){
+                        if(!resp || resp.ok !== true){
+                            out.innerHTML = "<div class='sp-error'>"+ escHtml(resp && resp.error ? resp.error : 'Erreur recherche') +"</div>";
+                        } else {
+                            renderDashboardSearchResults(resp.items || []);
+                        }
+                    }).catch(function(err){
+                        out.innerHTML = "<div class='sp-error'>"+ escHtml(err && err.message ? err.message : String(err)) +"</div>";
+                    });
+                }, 350);
+            });
+
+            rightContentEl.addEventListener('dragstart', function(ev){
+                var card = ev.target && ev.target.closest ? ev.target.closest('.dashboard-poste-card') : null;
+                if(!card) return;
+                dragExt = String(card.getAttribute('data-ext') || '').trim();
+                if(!dragExt) return;
+                var cardRect = card.getBoundingClientRect();
+                dragOffsetX = Math.round(ev.clientX - cardRect.left);
+                dragOffsetY = Math.round(ev.clientY - cardRect.top);
+                if(!isFinite(dragOffsetX)) dragOffsetX = 8;
+                if(!isFinite(dragOffsetY)) dragOffsetY = 8;
+                try{ ev.dataTransfer.setData('text/plain', dragExt); }catch(e){}
+                try{ ev.dataTransfer.effectAllowed = 'move'; }catch(e){}
+                card.style.opacity = '0.5';
+            });
+
+            rightContentEl.addEventListener('dragend', function(ev){
+                var card = ev.target && ev.target.closest ? ev.target.closest('.dashboard-poste-card') : null;
+                if(card) card.style.opacity = '';
+                dragExt = '';
+                dragOffsetX = 0;
+                dragOffsetY = 0;
+            });
+
+            rightContentEl.addEventListener('dragover', function(ev){
+                var zone = ev.target && ev.target.closest ? ev.target.closest('#dashboard-postes-list, .dashboard-poste-card') : null;
+                if(!zone) return;
+                ev.preventDefault();
+                try{ ev.dataTransfer.dropEffect = 'move'; }catch(e){}
+            });
+
+            rightContentEl.addEventListener('drop', function(ev){
+                var listEl = rightContentEl.querySelector('#dashboard-postes-list');
+                if(!listEl) return;
+                var zone = ev.target && ev.target.closest ? ev.target.closest('#dashboard-postes-list, .dashboard-poste-card') : null;
+                if(!zone) return;
+                var dragged = dragExt;
+                if(!dragged){
+                    try{ dragged = String(ev.dataTransfer.getData('text/plain') || '').trim(); }catch(e){ dragged = ''; }
+                }
+                if(!dragged) return;
+                ev.preventDefault();
+                var listRect = listEl.getBoundingClientRect();
+                var x = Math.round(ev.clientX - listRect.left - dragOffsetX);
+                var y = Math.round(ev.clientY - listRect.top - dragOffsetY);
+                moveDashboardPosteTo(dragged, x, y, listRect.width);
+                renderDashboardPostes();
+            });
+        }
+
         function updateBottomMenuFromApi(){
             var domain = getCfg(["SipDomain","SipDomaine"]);
             var ext    = getCfg(["SipUsername","SipUserID","profileUserID"]) || '';
@@ -1810,6 +3015,8 @@
             if(vmBtn) vmBtn.style.display = 'none';
             var agentBtn = $("nav-agent");
             if(agentBtn) agentBtn.style.display = 'none';
+            var dashboardBtn = $("nav-dashboard");
+            if(dashboardBtn) dashboardBtn.style.display = 'none';
 
             var apiExt = ext;
             try{
@@ -1852,9 +3059,11 @@
 
                     var hasVoicemail = normalized.indexOf('voicemail') !== -1;
                     var hasAgent = normalized.indexOf('agent') !== -1;
+                    var hasDashboard = normalized.indexOf('dashboard') !== -1;
 
                     if(vmBtn) vmBtn.style.display = hasVoicemail ? '' : 'none';
                     if(agentBtn) agentBtn.style.display = hasAgent ? '' : 'none';
+                    if(dashboardBtn) dashboardBtn.style.display = hasDashboard ? '' : 'none';
                 })
                 .catch(function(err){
                     console.warn('get_menu échoué', err);
@@ -1862,12 +3071,15 @@
         }
 
         if(closeBtn) closeBtn.addEventListener("click", closePanel);
+        if(rightCloseBtn) rightCloseBtn.addEventListener("click", closeRightPanel);
+        bindRightPanelResizeHandle();
 
         var btns = [
             { id: "nav-clavier", title: "Clavier" },
             { id: "nav-historique", title: "Historique" },
             { id: "nav-voicemail", title: "Visual Voicemail" },
             { id: "nav-agent", title: "Agent" },
+            { id: "nav-dashboard", title: "Dashboard" },
             { id: "nav-contacts", title: "Contacts" },
             { id: "nav-favoris", title: "Favoris" },
             { id: "nav-fonction-avance", title: "Fonctions avancées" }
@@ -1876,6 +3088,47 @@
             var el = $(b.id);
             if(!el) return;
             el.addEventListener("click", function(){
+                if(b.id === 'nav-dashboard'){
+                    try { closePanel(); } catch(e) {}
+                    if(rightPanel && rightPanel.classList.contains('sidepanel--open')){
+                        closeRightPanel();
+                    } else {
+                        var dashHtml = ""
+                            + "<div style='min-height:calc(100vh - 64px - 50px); padding:12px; box-sizing:border-box;'>"
+                            +   "<div style='min-width:0; display:flex; flex-direction:column; position:relative;'>"
+                            +     "<div id='dashboard-tabs' style='display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;'></div>"
+                            +     "<div class='sp-text' style='margin-bottom:8px;'>Contenu principal</div>"
+                            +     "<div id='dashboard-postes-list' style='flex:1 1 auto; position:relative; display:block; min-height:180px; padding-bottom:54px;'></div>"
+                            +     "<div style='position:absolute; left:0; bottom:0;'>"
+                            +       "<button id='dashboard-add-btn' type='button' class='roundButtons' title='Ajouter un poste'>"
+                            +           "<i class='fa fa-user-plus'></i>"
+                            +       "</button>"
+                            +       "<div id='dashboard-search-zone' style='display:none; margin-top:6px; width:260px; max-width:70vw; background:#fff; border:1px solid rgba(0,0,0,0.12); border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.12); padding:8px;'>"
+                            +           "<label for='txtFindDashboardFavorite' class='sp-label'>Rechercher dans l'annuaire</label>"
+                            +           "<input id='txtFindDashboardFavorite' type='text' placeholder='Nom ou extension...' autocomplete='off' class='sp-input' />"
+                            +           "<div id='dashboardResults' style='margin-top:8px; min-height:24px; max-height:220px; overflow:auto;'></div>"
+                            +       "</div>"
+                            +       "<div id='dashboard-tab-menu' style='display:none; position:fixed; z-index:10050; background:#fff; border:1px solid rgba(0,0,0,0.16); border-radius:8px; box-shadow:0 8px 22px rgba(0,0,0,0.16); min-width:140px; overflow:hidden;'>"
+                            +           "<button id='dashboard-tab-menu-rename' type='button' class='sp-button-surface' style='display:block; width:100%; text-align:left; border:0; border-bottom:1px solid rgba(0,0,0,0.08); padding:8px 10px;'>Renommer</button>"
+                            +           "<button id='dashboard-tab-menu-delete' type='button' class='sp-button-surface' style='display:block; width:100%; text-align:left; border:0; padding:8px 10px; color:#b91c1c;'>Supprimer</button>"
+                            +       "</div>"
+                            +     "</div>"
+                            +   "</div>"
+                            + "</div>";
+                        openRightPanel("Dashboard", dashHtml, 'dashboard');
+                        bindDashboardUi();
+                        renderDashboardTabs();
+                        renderDashboardPostes();
+                        if(dashboardRefreshTimer){ clearInterval(dashboardRefreshTimer); }
+                        dashboardRefreshTimer = setInterval(function(){
+                            if(rightPanel && rightPanel.classList.contains('sidepanel--open')){
+                                renderDashboardTabs();
+                                renderDashboardPostes();
+                            }
+                        }, 3000);
+                    }
+                    return;
+                }
                 if(b.id === 'nav-clavier'){
                     // Ouvrir directement le pavé de numérotation de l'application
                     // Ferme le panneau latéral si ouvert, puis appelle ShowDial()
@@ -2061,6 +3314,8 @@
                                         var domain = getCfg(["SipDomain","SipDomaine"]);
                                         domain = normalizeApiDomain(domain);
                                         base = domain + '/celyavox-api/ldap/contacts';
+                                    } else {
+                                        base = normalizeApiUrl(base) || base;
                                     }
                                     var u = new URL(base, window.location.origin);
                                     // Paramètre de recherche (sn)
@@ -2216,13 +3471,24 @@
                                 return String(plain || '').trim();
                             }
                             function pickExt(it){
-                                var cand = [ it.extension, it.ext, it.internalNumber, it.telephoneNumber, it.uid, it.sip || it.sipId ];
-                                for(var i=0;i<cand.length;i++){
-                                    var v = cand[i];
-                                    if(v == null) continue;
-                                    var s = String(v).trim();
-                                    if(/^\d{2,8}$/.test(s)) return s; // extension plausible
+                                // Only keep internal extension-like values, exclude phone numbers.
+                                function normalizeDigits(v){
+                                    return String(v == null ? '' : v).replace(/\s+/g, '').trim();
                                 }
+                                function looksLikeExtension(v){
+                                    var s = normalizeDigits(v);
+                                    if(!/^\d+$/.test(s)) return false;
+                                    var minLen = 2;
+                                    var maxLen = parseInt(localStorage.getItem('FavoritesExtensionMaxLength') || '6', 10);
+                                    if(!isFinite(maxLen) || maxLen < minLen) maxLen = 6;
+                                    return s.length >= minLen && s.length <= maxLen;
+                                }
+                                var preferred = [ it.extension, it.ext, it.internalNumber, it.sipId, it.uid ];
+                                for(var i=0;i<preferred.length;i++){
+                                    if(looksLikeExtension(preferred[i])) return normalizeDigits(preferred[i]);
+                                }
+                                // Fallback on telephone field only if it still looks like a short internal extension.
+                                if(looksLikeExtension(it.telephoneNumber)) return normalizeDigits(it.telephoneNumber);
                                 return null;
                             }
                             function getDisplayPrefix(){

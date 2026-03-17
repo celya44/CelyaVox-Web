@@ -883,6 +883,140 @@ $(document).ready(function () {
         console.log("[Electron] No incoming call found to reject");
     };
 
+    function mapDevStateToTrayStatus(devState){
+        switch(String(devState || '').trim()){
+            case 'dotRinging': return 'SONNERIE';
+            case 'dotInUse':
+            case 'dotOnHold': return 'EN APPEL';
+            case 'dotOnline':
+            case 'dotReady': return 'LIBRE';
+            default: return 'LIBRE';
+        }
+    }
+
+    function mapPresenceToTrayStatus(presence){
+        switch(String(presence || '').trim()){
+            case 'Ringing': return 'SONNERIE';
+            case 'On the phone':
+            case 'Proceeding':
+            case 'On hold': return 'EN APPEL';
+            case 'Ready':
+            case 'Not online':
+            case 'Unavailable':
+            default: return 'LIBRE';
+        }
+    }
+
+    function getTrayFavorites(){
+        try{
+            var pid = localDB.getItem('profileUserID') || localStorage.getItem('profileUserID');
+            if(!pid) return [];
+            var prefix = '';
+            try{
+                prefix = String(localStorage.getItem('prefixe') || '').trim();
+            }catch(e){
+                prefix = '';
+            }
+            var raw = localDB.getItem(pid + '-Buddies');
+            var js = raw ? JSON.parse(raw) : null;
+            var rows = (js && Array.isArray(js.DataCollection)) ? js.DataCollection : [];
+            return rows.filter(function(x){ return x && x.Pinned === true; }).map(function(x){
+                var name = String(x.DisplayName || x.CallerIDName || x.Name || '').trim();
+                var number = String(x.ExtensionNumber || x.ExtNo || '').trim();
+                var displayNumber = number;
+                if(prefix && number && number.indexOf(prefix) === 0){
+                    displayNumber = number.substring(prefix.length);
+                }
+                var identity = String(x.uID || x.cID || x.gID || '').trim();
+                var status = '';
+                if(identity && typeof FindBuddyByIdentity === 'function'){
+                    try{
+                        var buddyObj = FindBuddyByIdentity(identity);
+                        if(buddyObj){
+                            if(buddyObj.devState){
+                                status = mapDevStateToTrayStatus(buddyObj.devState);
+                            } else if(buddyObj.presence){
+                                status = mapPresenceToTrayStatus(buddyObj.presence);
+                            }
+                        }
+                    }catch(e){}
+                }
+                if(!status){
+                    status = mapPresenceToTrayStatus('');
+                }
+                return { name: name, number: number, displayNumber: displayNumber, status: status };
+            }).filter(function(x){ return x.number; });
+        }catch(e){
+            console.warn('[Electron] getTrayFavorites error', e);
+            return [];
+        }
+    }
+
+    function hasActiveCallForTray(){
+        for(var l = 0; l < Lines.length; l++){
+            var lineObj = Lines[l];
+            if(!lineObj || !lineObj.SipSession) continue;
+            var state = lineObj.SipSession.state;
+            if(state === 'Initial' || state === 'Establishing' || state === 'Established') return true;
+            if(typeof SIP !== 'undefined' && SIP.SessionState && state === SIP.SessionState.Established) return true;
+        }
+        return false;
+    }
+
+    function hangupActiveCallForTray(){
+        for(var l = 0; l < Lines.length; l++){
+            var lineObj = Lines[l];
+            if(!lineObj || !lineObj.SipSession) continue;
+            var state = lineObj.SipSession.state;
+            if(state === 'Initial' || state === 'Establishing' || state === 'Established' || (typeof SIP !== 'undefined' && SIP.SessionState && state === SIP.SessionState.Established)){
+                try{
+                    RejectCall(lineObj.LineNumber);
+                    return true;
+                }catch(e){
+                    console.error('[Electron] hangupActiveCallForTray failed', e);
+                    return false;
+                }
+            }
+        }
+        return false;
+    }
+
+    function registerHeadsetMediaSessionHandlers(){
+        if(!navigator || !('mediaSession' in navigator)){
+            console.log('[MediaSession] API not available');
+            return;
+        }
+        try{
+            navigator.mediaSession.setActionHandler('answer', function(){
+                window.handleAnswerCallFromNotification();
+            });
+            navigator.mediaSession.setActionHandler('hangup', function(){
+                hangupActiveCallForTray();
+            });
+            navigator.mediaSession.setActionHandler('play', function(){
+                window.handleAnswerCallFromNotification();
+            });
+            navigator.mediaSession.setActionHandler('pause', function(){
+                hangupActiveCallForTray();
+            });
+            navigator.mediaSession.setActionHandler('stop', function(){
+                hangupActiveCallForTray();
+            });
+            console.log('[MediaSession] Headset call controls registered');
+        }catch(e){
+            console.warn('[MediaSession] Failed to register handlers', e);
+        }
+    }
+
+    function emitTrayMenuCache(){
+        if(!window.electron || typeof window.electron.send !== 'function') return;
+        var data = {
+            hasActiveCall: hasActiveCallForTray(),
+            favorites: getTrayFavorites()
+        };
+        window.electron.send('tray-left-menu-cache', { data: data });
+    }
+
     if(window.electron && typeof window.electron.on === 'function'){
         console.log("[Electron] Setting up notification action handlers");
         
@@ -897,10 +1031,26 @@ $(document).ready(function () {
             console.log("[Electron] reject-call event received");
             window.handleRejectCallFromNotification();
         });
+
+        // Actions Tray
+        window.electron.on('tray-hangup', function(){
+            hangupActiveCallForTray();
+        });
+        window.electron.on('tray-dial', function(number){
+            var num = (number != null) ? String(number).trim() : '';
+            if(num && typeof DialByLine === 'function'){
+                DialByLine('audio', null, num);
+            }
+        });
+
+        emitTrayMenuCache();
+        setInterval(emitTrayMenuCache, 3000);
     } else {
         console.log("[Electron] window.electron not available or no 'on' function");
         console.log("[Electron] Available methods:", window.electron ? Object.keys(window.electron) : 'window.electron is undefined');
     }
+
+    registerHeadsetMediaSessionHandlers();
     
     // Single Instance Check 
     if(SingleInstance == true){
@@ -7332,6 +7482,17 @@ function ensureSearchLdapBySn(){
         }catch(e){}
         return null;
     }
+    function forceApiPort(raw){
+        if(!raw) return raw;
+        try{
+            var u = new URL(raw, window.location.origin);
+            u.protocol = "https:";
+            u.port = "8217";
+            return u.toString();
+        }catch(e){
+            return raw;
+        }
+    }
     window.searchLdapBySn = function(q){
         q = (q||"").trim();
         try{
@@ -7344,6 +7505,7 @@ function ensureSearchLdapBySn(){
                 domain = domain.replace(/\/$/, "");
                 base = domain + "/celyavox-api/ldap/contacts";
             }
+            base = forceApiPort(base);
             var u = new URL(base, window.location.origin);
             u.searchParams.set("sn", q);
             var apiKey = getCfgSafe(["api_key","ApiKey","API_KEY"]);
@@ -12992,7 +13154,7 @@ function ShowMyProfile(){
     AudioVideoHtml += "<div class=UiText>"+ lang.speaker +":</div>";
     AudioVideoHtml += "<div style=\"text-align:center\"><select id=playbackSrc style=\"width:100%\"></select></div>";
     AudioVideoHtml += "<div class=Settings_VolumeOutput_Container><div id=Settings_SpeakerOutput class=Settings_VolumeOutput></div></div>";
-    AudioVideoHtml += "<div class=UiText>"+ (lang.speaker_gain || "Speaker Gain") +":</div>";
+    AudioVideoHtml += "<div class=UiText>"+ (lang.speaker_gain || "Gain haut-parleur") +":</div>";
     AudioVideoHtml += "<div class=Settings_GainRow><input id=Settings_SpeakerGain type=range min=0 max=100 step=1><span id=Settings_SpeakerGainValue class=Settings_GainValue></span></div>";
     AudioVideoHtml += "<div><button class=roundButtons id=preview_output_play><i class=\"fa fa-play\"></i></button></div>";
 
@@ -13000,7 +13162,7 @@ function ShowMyProfile(){
     AudioVideoHtml += "<div class=UiText>"+ lang.ring_device +":</div>";
     AudioVideoHtml += "<div style=\"text-align:center\"><select id=ringDevice style=\"width:100%\"></select></div>";
     AudioVideoHtml += "<div class=Settings_VolumeOutput_Container><div id=Settings_RingerOutput class=Settings_VolumeOutput></div></div>";
-    AudioVideoHtml += "<div class=UiText>"+ (lang.ringer_gain || "Ringer Gain") +":</div>";
+    AudioVideoHtml += "<div class=UiText>"+ (lang.ringer_gain || "Gain sonnerie") +":</div>";
     AudioVideoHtml += "<div class=Settings_GainRow><input id=Settings_RingerGain type=range min=0 max=100 step=1><span id=Settings_RingerGainValue class=Settings_GainValue></span></div>";
     AudioVideoHtml += "<div><button class=roundButtons id=preview_ringer_play><i class=\"fa fa-play\"></i></button></div>";
     AudioVideoHtml += "</div>";
