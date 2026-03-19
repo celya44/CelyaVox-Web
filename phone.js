@@ -15,7 +15,7 @@
 
 // Global Settings
 // ===============
-const appversion = "1.0.5";
+const appversion = "1.0.6";
 const sipjsversion = "0.20.0";
 const electron_version_needed = "1.0.7"; // Version minimale de l'application Electron requise
 const navUserAgent = window.navigator.userAgent;  // TODO: change to Navigator.userAgentData

@@ -228,6 +228,36 @@
     z-index: 1;
     border-right: 1px solid rgba(0,0,0,0.04);
 }
+.sidepanel--right .sidepanel__left-resizer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 10px;
+    cursor: ew-resize;
+    z-index: 1;
+    border-left: 1px solid rgba(0,0,0,0.04);
+}
+.sidepanel--right .sidepanel__left-resizer::before {
+    content: '\2194';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 12px;
+    color: rgba(0,0,0,0.45);
+    background: rgba(255,255,255,0.92);
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 8px;
+    padding: 2px 4px;
+    opacity: 0;
+    transition: opacity 120ms ease;
+    pointer-events: none;
+}
+.sidepanel--right .sidepanel__left-resizer:hover::before,
+.sidepanel--right.sidepanel--resizing .sidepanel__left-resizer::before {
+    opacity: 1;
+}
 .sidepanel--right .sidepanel__resizer::before {
     content: '\2194';
     position: absolute;
@@ -697,6 +727,12 @@ body.sidepanel-open #Phone {
 body.sidepanel-right-open #Phone {
     padding-right: var(--sidepanel-right-push, 320px); /* espace reserve fixe pour ne pas redimensionner le dialpad */
     box-sizing: border-box;
+}
+
+/* Quand le Dashboard est actif, #Phone et les panneaux latéraux ne sont pas contraints en largeur */
+body.has-dashboard #Phone,
+body.has-dashboard .sidepanel {
+    max-width: none !important;
 }
 
 .smallFlag {
@@ -1513,7 +1549,6 @@ input[type=range]{
     min-width: 0px;
 }
 
-
 .toolBarButtons {
     border-radius: 5px;
     cursor: pointer;
@@ -2024,6 +2059,121 @@ input[type=range]{
     content: "\f098";
     font-family: FontAwesome;
     color: #b40202;
+}
+
+.dashboard-poste-card .dotDefault,
+.dashboard-poste-card .dotOnline,
+.dashboard-poste-card .dotOffline,
+.dashboard-poste-card .dotRinging,
+.dashboard-poste-card .dotInUse,
+.dashboard-poste-card .dotDoNotDisturb,
+.dashboard-poste-card .dotReady,
+.dashboard-poste-card .dotOnHold {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 16px;
+    min-width: 16px;
+    height: 16px;
+    line-height: 16px;
+    flex: 0 0 16px;
+}
+
+.dashboard-poste-card .dotDefault:before,
+.dashboard-poste-card .dotOnline:before,
+.dashboard-poste-card .dotOffline:before,
+.dashboard-poste-card .dotRinging:before,
+.dashboard-poste-card .dotInUse:before,
+.dashboard-poste-card .dotDoNotDisturb:before,
+.dashboard-poste-card .dotReady:before,
+.dashboard-poste-card .dotOnHold:before {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(1.75);
+    transform-origin: center;
+    display: block;
+    line-height: 1;
+    font-size: 16px;
+}
+
+.dashboard-poste-card.dashboard-size-s .dotDefault,
+.dashboard-poste-card.dashboard-size-s .dotOnline,
+.dashboard-poste-card.dashboard-size-s .dotOffline,
+.dashboard-poste-card.dashboard-size-s .dotRinging,
+.dashboard-poste-card.dashboard-size-s .dotInUse,
+.dashboard-poste-card.dashboard-size-s .dotDoNotDisturb,
+.dashboard-poste-card.dashboard-size-s .dotReady,
+.dashboard-poste-card.dashboard-size-s .dotOnHold {
+    width: 14px;
+    min-width: 14px;
+    height: 14px;
+    line-height: 14px;
+    flex: 0 0 14px;
+}
+
+.dashboard-poste-card.dashboard-size-s .dotDefault:before,
+.dashboard-poste-card.dashboard-size-s .dotOnline:before,
+.dashboard-poste-card.dashboard-size-s .dotOffline:before,
+.dashboard-poste-card.dashboard-size-s .dotRinging:before,
+.dashboard-poste-card.dashboard-size-s .dotInUse:before,
+.dashboard-poste-card.dashboard-size-s .dotDoNotDisturb:before,
+.dashboard-poste-card.dashboard-size-s .dotReady:before,
+.dashboard-poste-card.dashboard-size-s .dotOnHold:before {
+    transform: translate(-50%, -50%) scale(1.55);
+}
+
+.dashboard-poste-card.dashboard-size-l .dotDefault,
+.dashboard-poste-card.dashboard-size-l .dotOnline,
+.dashboard-poste-card.dashboard-size-l .dotOffline,
+.dashboard-poste-card.dashboard-size-l .dotRinging,
+.dashboard-poste-card.dashboard-size-l .dotInUse,
+.dashboard-poste-card.dashboard-size-l .dotDoNotDisturb,
+.dashboard-poste-card.dashboard-size-l .dotReady,
+.dashboard-poste-card.dashboard-size-l .dotOnHold {
+    width: 20px;
+    min-width: 20px;
+    height: 20px;
+    line-height: 20px;
+    flex: 0 0 20px;
+}
+
+.dashboard-poste-card.dashboard-size-l .dotDefault:before,
+.dashboard-poste-card.dashboard-size-l .dotOnline:before,
+.dashboard-poste-card.dashboard-size-l .dotOffline:before,
+.dashboard-poste-card.dashboard-size-l .dotRinging:before,
+.dashboard-poste-card.dashboard-size-l .dotInUse:before,
+.dashboard-poste-card.dashboard-size-l .dotDoNotDisturb:before,
+.dashboard-poste-card.dashboard-size-l .dotReady:before,
+.dashboard-poste-card.dashboard-size-l .dotOnHold:before {
+    transform: translate(-50%, -50%) scale(2.15);
+}
+
+.dashboard-poste-card.dashboard-size-xl .dotDefault,
+.dashboard-poste-card.dashboard-size-xl .dotOnline,
+.dashboard-poste-card.dashboard-size-xl .dotOffline,
+.dashboard-poste-card.dashboard-size-xl .dotRinging,
+.dashboard-poste-card.dashboard-size-xl .dotInUse,
+.dashboard-poste-card.dashboard-size-xl .dotDoNotDisturb,
+.dashboard-poste-card.dashboard-size-xl .dotReady,
+.dashboard-poste-card.dashboard-size-xl .dotOnHold {
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    line-height: 24px;
+    flex: 0 0 24px;
+}
+
+.dashboard-poste-card.dashboard-size-xl .dotDefault:before,
+.dashboard-poste-card.dashboard-size-xl .dotOnline:before,
+.dashboard-poste-card.dashboard-size-xl .dotOffline:before,
+.dashboard-poste-card.dashboard-size-xl .dotRinging:before,
+.dashboard-poste-card.dashboard-size-xl .dotInUse:before,
+.dashboard-poste-card.dashboard-size-xl .dotDoNotDisturb:before,
+.dashboard-poste-card.dashboard-size-xl .dotReady:before,
+.dashboard-poste-card.dashboard-size-xl .dotOnHold:before {
+    transform: translate(-50%, -50%) scale(2.4);
 }
 
 .dotDoNotDisturb {

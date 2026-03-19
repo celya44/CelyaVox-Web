@@ -577,9 +577,11 @@
 
         <!-- Panneau latéral droit (Dashboard) -->
         <aside id="sidepanel-right" class="sidepanel sidepanel--right" aria-hidden="true" aria-live="polite">
+            <div id="sidepanel-right-left-resizer" class="sidepanel__left-resizer" title="Redimensionner" aria-hidden="true"></div>
             <div id="sidepanel-right-resizer" class="sidepanel__resizer" title="Redimensionner" aria-hidden="true"></div>
             <div class="sidepanel__header">
                 <span id="sidepanel-right-title" class="sidepanel__title"></span>
+                <div id="sidepanel-right-actions" style="display:flex; align-items:center; margin-left:auto; margin-right:8px;"></div>
                 <button id="sidepanel-right-close" class="sidepanel__close" type="button" aria-label="Fermer">&times;</button>
             </div>
             <div id="sidepanel-right-content" class="sidepanel__content"></div>
@@ -605,8 +607,10 @@
         var rightPanel = $("sidepanel-right");
         var rightTitleEl = $("sidepanel-right-title");
         var rightContentEl = $("sidepanel-right-content");
+        var rightActionsEl = $("sidepanel-right-actions");
         var rightCloseBtn = $("sidepanel-right-close");
         var rightResizerEl = $("sidepanel-right-resizer");
+        var rightLeftResizerEl = $("sidepanel-right-left-resizer");
     var phoneEl = $("Phone");
     var resizeHandler = null;
     var contentResizeObserver = null;
@@ -615,6 +619,7 @@
     var rightPanelResizeState = null;
     var rightPanelPushWidth = null;
     var dashboardRefreshTimer = null;
+    var dashboardAutoOpened = false;
         function toArrayFromResponse(data){
             // Déjà un tableau
             if(Array.isArray(data)) return data;
@@ -1601,6 +1606,15 @@
             rightPanel.style.width = desiredW + 'px';
         }
 
+        var _updateUITimer = null;
+        function _scheduleUpdateUI(){
+            if(_updateUITimer) clearTimeout(_updateUITimer);
+            _updateUITimer = setTimeout(function(){
+                _updateUITimer = null;
+                try{ if(typeof UpdateUI === 'function') UpdateUI(); }catch(e){}
+            }, 50);
+        }
+
         function stopRightPanelResize(){
             if(!rightPanelResizeState) return;
             rightPanelResizeState = null;
@@ -1608,21 +1622,33 @@
             if(rightPanel) rightPanel.classList.remove('sidepanel--resizing');
             window.removeEventListener('mousemove', onRightPanelResizeMove, true);
             window.removeEventListener('mouseup', stopRightPanelResize, true);
+            // Refresh final du dialpad
+            try{ if(typeof UpdateUI === 'function') UpdateUI(); }catch(e){}
         }
 
         function onRightPanelResizeMove(ev){
             if(!rightPanelResizeState || !rightPanel) return;
             ev.preventDefault();
-            var anchorLeft = rightPanelResizeState.anchorLeft;
-            if(!isFinite(anchorLeft)) anchorLeft = rightPanel.getBoundingClientRect().left;
-            var rawW = Math.round(ev.clientX - anchorLeft);
             var minW = rightPanelResizeState.min;
-            var dynamicMax = Math.floor(window.innerWidth - anchorLeft - 40);
             var maxW = rightPanelResizeState.max;
-            if(isFinite(dynamicMax) && dynamicMax > 0) maxW = Math.min(maxW, dynamicMax);
-            var nextW = Math.max(minW, Math.min(rawW, maxW));
+            var nextW;
+            if(rightPanelResizeState.mode === 'left'){
+                // Bord gauche fixé à droite : largeur = anchorRight - clientX
+                var rawW = Math.round(rightPanelResizeState.anchorRight - ev.clientX);
+                nextW = Math.max(minW, Math.min(rawW, maxW));
+            } else {
+                var anchorLeft = rightPanelResizeState.anchorLeft;
+                if(!isFinite(anchorLeft)) anchorLeft = rightPanel.getBoundingClientRect().left;
+                var rawW = Math.round(ev.clientX - anchorLeft);
+                var dynamicMax = Math.floor(window.innerWidth - anchorLeft - 40);
+                if(isFinite(dynamicMax) && dynamicMax > 0) maxW = Math.min(maxW, dynamicMax);
+                nextW = Math.max(minW, Math.min(rawW, maxW));
+            }
             rightPanel.style.width = nextW + 'px';
+            rightPanelPushWidth = nextW;
+            document.body.style.setProperty('--sidepanel-right-push', nextW + 'px');
             try{ localStorage.setItem('SidepanelRightUserWidth_' + rightPanelResizeState.type, String(nextW)); }catch(e){}
+            _scheduleUpdateUI();
         }
 
         function startRightPanelResize(ev){
@@ -1659,11 +1685,49 @@
             window.addEventListener('mouseup', stopRightPanelResize, true);
         }
 
+        function startRightPanelLeftResize(ev){
+            if(!rightPanel || !rightLeftResizerEl) return;
+            if(!rightPanel.classList.contains('sidepanel--open')) return;
+            if(ev.button !== 0) return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            var type = rightPanel.getAttribute('data-type') || 'default';
+            var defaults = {
+                'dashboard': { min: 360, max: null },
+                'default':   { min: 320, max: null }
+            };
+            var def = defaults[type] || defaults['default'];
+            var minPref = localStorage.getItem('SidepanelRightMinWidth_' + type) || localStorage.getItem('SidepanelRightMinWidth');
+            var maxPref = localStorage.getItem('SidepanelRightMaxWidth_' + type) || localStorage.getItem('SidepanelRightMaxWidth');
+            var minW = parseInt(minPref || String(def.min), 10);
+            var maxW = (maxPref == null || String(maxPref).trim() === '') ? Number.MAX_SAFE_INTEGER : parseInt(maxPref, 10);
+            if(!isFinite(minW)) minW = 280;
+            if(minW < 100) minW = 100;
+            if(!isFinite(maxW) || maxW < minW) maxW = Number.MAX_SAFE_INTEGER;
+            var rect = rightPanel.getBoundingClientRect();
+            var anchorRight = Math.round(rect.right);
+            // Ancrer le panel à droite pour que le bord droit reste fixe
+            rightPanel.setAttribute('data-user-anchored', '0');
+            rightPanel.style.left = '';
+            rightPanel.style.right = (window.innerWidth - anchorRight) + 'px';
+            var viewportMax = Math.floor(anchorRight - 40);
+            if(isFinite(viewportMax) && viewportMax > 0) maxW = Math.min(maxW, viewportMax);
+            if(maxW < minW) minW = Math.max(100, maxW);
+            rightPanelResizeState = { type: type, min: minW, max: maxW, anchorRight: anchorRight, mode: 'left' };
+            document.body.classList.add('sidepanel-right-resizing');
+            rightPanel.classList.add('sidepanel--resizing');
+            window.addEventListener('mousemove', onRightPanelResizeMove, true);
+            window.addEventListener('mouseup', stopRightPanelResize, true);
+        }
+
         function bindRightPanelResizeHandle(){
             if(!rightResizerEl) return;
             if(rightResizerEl.dataset.bound === '1') return;
             rightResizerEl.dataset.bound = '1';
             rightResizerEl.addEventListener('mousedown', startRightPanelResize);
+            if(rightLeftResizerEl){
+                rightLeftResizerEl.addEventListener('mousedown', startRightPanelLeftResize);
+            }
         }
 
         // Fonctions avancées: DND/CF depuis l'API forward_detail
@@ -1986,7 +2050,33 @@
                 if(/dashboard/.test(t)) type = 'dashboard';
                 else type = 'default';
             }
+            if(rightActionsEl){
+                if(String(type) === 'dashboard'){
+                    rightActionsEl.innerHTML = ""
+                        + "<div style='position:relative; display:flex; align-items:center; gap:8px;'>"
+                        +   "<input id='dashboard-card-filter' type='text' placeholder='Filtrer les cartes...' autocomplete='off'"
+                        +          " style='width:170px; max-width:28vw; height:30px; padding:0 8px; border:1px solid rgba(0,0,0,0.18); border-radius:6px; font-size:12px;' />"
+                        +   "<div style='position:relative; display:flex; flex-direction:column; align-items:flex-end;'>"
+                        +     "<button id='dashboard-add-btn' type='button' class='roundButtons' title='Ajouter un poste'>"
+                        +         "<i class='fa fa-user-plus'></i>"
+                        +     "</button>"
+                        +     "<div id='dashboard-search-zone' style='display:none; position:absolute; top:calc(100% + 6px); right:0; width:260px; max-width:70vw; background:#fff; border:1px solid rgba(0,0,0,0.12); border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.12); padding:8px; z-index:10060;'>"
+                        +         "<label for='txtFindDashboardFavorite' class='sp-label'>Rechercher dans l'annuaire</label>"
+                        +         "<div style='margin:4px 0 6px;'>"
+                        +             "<input id='dashboard-short-only' type='checkbox' />"
+                        +             "<label for='dashboard-short-only' style='font-size:12px; cursor:pointer;'>Num Court</label>"
+                        +         "</div>"
+                        +         "<input id='txtFindDashboardFavorite' type='text' placeholder='Nom ou extension...' autocomplete='off' class='sp-input' />"
+                        +         "<div id='dashboardResults' style='margin-top:8px; min-height:24px; max-height:220px; overflow:auto;'></div>"
+                        +     "</div>"
+                        +   "</div>"
+                        + "</div>";
+                } else {
+                    rightActionsEl.innerHTML = '';
+                }
+            }
             rightPanel.setAttribute('data-type', String(type));
+            renderDashboardCardSizeCorner();
             sizeRightPanelToContent();
             if(rightPanelPushWidth == null){
                 var initialW = Math.round(rightPanel.getBoundingClientRect().width || 0);
@@ -2003,6 +2093,9 @@
         }
         function closeRightPanel(){
             if(!rightPanel) return;
+            if(rightActionsEl) rightActionsEl.innerHTML = '';
+            var dashboardSizeCorner = rightPanel.querySelector('#dashboard-card-size-corner');
+            if(dashboardSizeCorner) dashboardSizeCorner.style.display = 'none';
             stopRightPanelResize();
             rightPanel.classList.remove("sidepanel--open");
             rightPanel.setAttribute("aria-hidden", "true");
@@ -2195,8 +2288,125 @@
             return true;
         }
 
+        function getDashboardCardSize(){
+            var sz = String(localStorage.getItem('DashboardCardSize') || 'M').toUpperCase();
+            if(sz !== 'S' && sz !== 'M' && sz !== 'L' && sz !== 'XL') sz = 'M';
+            return sz;
+        }
+
+        function setDashboardCardSize(sz){
+            var next = String(sz || '').toUpperCase();
+            if(next !== 'S' && next !== 'M' && next !== 'L' && next !== 'XL') next = 'M';
+            localStorage.setItem('DashboardCardSize', next);
+        }
+
+        function renderDashboardCardSizeCorner(){
+            if(!rightPanel) return;
+            var corner = rightPanel.querySelector('#dashboard-card-size-corner');
+            var isDashboard = (String(rightPanel.getAttribute('data-type') || '') === 'dashboard');
+            if(!isDashboard){
+                if(corner) corner.style.display = 'none';
+                return;
+            }
+            if(!corner){
+                corner = document.createElement('div');
+                corner.id = 'dashboard-card-size-corner';
+                corner.style.position = 'absolute';
+                corner.style.right = '12px';
+                corner.style.bottom = '84px';
+                corner.style.zIndex = '10070';
+                corner.style.display = 'inline-flex';
+                corner.style.alignItems = 'center';
+                corner.style.gap = '4px';
+                corner.style.padding = '4px';
+                corner.style.borderRadius = '10px';
+                corner.style.background = 'rgba(255,255,255,0.94)';
+                corner.style.border = '1px solid rgba(0,0,0,0.14)';
+                corner.style.boxShadow = '0 6px 14px rgba(0,0,0,0.14)';
+                corner.innerHTML = ''
+                    + '<button type="button" class="dashboard-card-size-btn" data-size="S" style="width:26px; height:26px; border:1px solid rgba(0,0,0,0.16); border-radius:6px; background:#fff; font-size:12px; cursor:pointer;">S</button>'
+                    + '<button type="button" class="dashboard-card-size-btn" data-size="M" style="width:26px; height:26px; border:1px solid rgba(0,0,0,0.16); border-radius:6px; background:#fff; font-size:12px; cursor:pointer;">M</button>'
+                    + '<button type="button" class="dashboard-card-size-btn" data-size="L" style="width:26px; height:26px; border:1px solid rgba(0,0,0,0.16); border-radius:6px; background:#fff; font-size:12px; cursor:pointer;">L</button>'
+                    + '<button type="button" class="dashboard-card-size-btn" data-size="XL" style="width:32px; height:26px; border:1px solid rgba(0,0,0,0.16); border-radius:6px; background:#fff; font-size:12px; cursor:pointer;">XL</button>';
+                rightPanel.appendChild(corner);
+            }
+            corner.style.display = 'inline-flex';
+            var active = getDashboardCardSize();
+            var buttons = corner.querySelectorAll('.dashboard-card-size-btn');
+            for(var i=0;i<buttons.length;i++){
+                var b = buttons[i];
+                var on = (String(b.getAttribute('data-size') || '') === active);
+                b.style.background = on ? '#3478f3' : '#ffffff';
+                b.style.borderColor = on ? '#3478f3' : 'rgba(0,0,0,0.16)';
+                b.style.color = on ? '#ffffff' : '#222222';
+                b.style.fontWeight = on ? '700' : '500';
+            }
+        }
+
         function getDashboardCardMetrics(){
-            return { cardW: 150, cardH: 52, gap: 8, pad: 8, grid: 16 };
+            var sz = getDashboardCardSize();
+            if(sz === 'S'){
+                return {
+                    sizeClass: 'dashboard-size-s',
+                    cardW: 130,
+                    cardH: 30,
+                    gap: 8,
+                    pad: 8,
+                    grid: 14,
+                    textMaxW: 88,
+                    mainFont: 12,
+                    subFont: 10,
+                    contentGap: 6,
+                    padTop: 0,
+                    padBottom: 0
+                };
+            }
+            if(sz === 'L'){
+                return {
+                    sizeClass: 'dashboard-size-l',
+                    cardW: 180,
+                    cardH: 40,
+                    gap: 10,
+                    pad: 8,
+                    grid: 18,
+                    textMaxW: 142,
+                    mainFont: 15,
+                    subFont: 12,
+                    contentGap: 10,
+                    padTop: 1,
+                    padBottom: 1
+                };
+            }
+            if(sz === 'XL'){
+                return {
+                    sizeClass: 'dashboard-size-xl',
+                    cardW: 220,
+                    cardH: 48,
+                    gap: 10,
+                    pad: 8,
+                    grid: 22,
+                    textMaxW: 178,
+                    mainFont: 17,
+                    subFont: 14,
+                    contentGap: 12,
+                    padTop: 1,
+                    padBottom: 1
+                };
+            }
+            return {
+                sizeClass: 'dashboard-size-m',
+                cardW: 150,
+                cardH: 34,
+                gap: 8,
+                pad: 8,
+                grid: 16,
+                textMaxW: 108,
+                mainFont: 13,
+                subFont: 11,
+                contentGap: 8,
+                padTop: 0,
+                padBottom: 0
+            };
         }
 
         function clampDashboardCardPos(x, y, listWidth){
@@ -2224,6 +2434,26 @@
             var x = m.pad + ((idx % cols) * (m.cardW + m.gap));
             var y = m.pad + (Math.floor(idx / cols) * (m.cardH + m.gap));
             return clampDashboardCardPos(x, y, safeW);
+        }
+
+        function relayoutDashboardPostes(){
+            var postes = getDashboardPostes();
+            if(!Array.isArray(postes) || postes.length === 0) return;
+            var listEl = rightContentEl ? rightContentEl.querySelector('#dashboard-postes-list') : null;
+            var listWidth = listEl
+                ? Math.floor(listEl.clientWidth || 0)
+                : Math.floor(((rightContentEl && rightContentEl.clientWidth) || 284) - 24);
+            if(!isFinite(listWidth) || listWidth < 180) listWidth = 260;
+
+            var out = [];
+            for(var i=0;i<postes.length;i++){
+                var item = postes[i] || {};
+                var ext = String(item.ext || '').trim();
+                if(!ext) continue;
+                var pos = getDashboardNextCardPos(out, listWidth);
+                out.push({ ext: ext, name: String(item.name || ''), x: pos.x, y: pos.y });
+            }
+            saveDashboardPostes(out);
         }
 
         function moveDashboardPosteTo(ext, x, y, listWidth){
@@ -2298,11 +2528,13 @@
             if(!rightContentEl) return;
             var listEl = rightContentEl.querySelector('#dashboard-postes-list');
             if(!listEl) return;
+            var filterInput = (rightPanel || rightContentEl).querySelector('#dashboard-card-filter');
+            var filterText = String((filterInput && filterInput.value) || '').trim().toLowerCase();
             var postes = getDashboardPostes();
             var gm = getDashboardCardMetrics();
             listEl.style.position = 'relative';
             listEl.style.display = 'block';
-            listEl.style.paddingBottom = '54px';
+            listEl.style.paddingBottom = '4px';
             listEl.style.backgroundImage = '';
             listEl.style.backgroundSize = '';
             listEl.style.backgroundPosition = '';
@@ -2318,6 +2550,7 @@
             var maxBottom = m.pad;
             var needSave = false;
             var postesOut = [];
+            var shown = 0;
             for(var i=0;i<postes.length;i++){
                 var item = postes[i] || {};
                 var ext = String(item.ext || '').trim();
@@ -2331,23 +2564,39 @@
                 var buddy = findBuddyForExt(ext);
                 var dot = mapBlfDotClass(buddy);
                 var displayName = String(item.name || (buddy && (buddy.CallerIDName || buddy.DisplayName)) || '');
+                if(filterText){
+                    var extRaw = String(ext || '').toLowerCase();
+                    var extShown = String(dashboardStripPrefix(ext) || '').toLowerCase();
+                    var nameShown = String(displayName || '').toLowerCase();
+                    var match = (extRaw.indexOf(filterText) !== -1)
+                             || (extShown.indexOf(filterText) !== -1)
+                             || (nameShown.indexOf(filterText) !== -1);
+                    if(!match) continue;
+                }
                 var btm = pos.y + m.cardH;
                 if(btm > maxBottom) maxBottom = btm;
                 html += ""
-                    + "<div class='sp-card dashboard-poste-card' draggable='true' data-ext='"+ escHtml(ext) +"' style='position:absolute; left:"+ pos.x +"px; top:"+ pos.y +"px; display:inline-flex; align-items:center; gap:8px; width:150px; max-width:100%; min-width:150px; padding:6px 8px; cursor:move;'>"
-                    +   "<div style='display:flex; align-items:center; gap:8px; min-width:0;'>"
-                    +     "<i class='fa fa-bars sp-muted' aria-hidden='true' title='Deplacer' style='font-size:12px;'></i>"
-                    +     "<span class='"+ dot +"' title='BLF'></span>"
+                    + "<div class='sp-card dashboard-poste-card "+ m.sizeClass +"' draggable='true' data-ext='"+ escHtml(ext) +"' title='"+ escHtml(displayName || ext) +"' style='position:absolute; left:"+ pos.x +"px; top:"+ pos.y +"px; display:inline-flex; align-items:flex-start; gap:"+ m.contentGap +"px; width:"+ m.cardW +"px; max-width:100%; min-width:"+ m.cardW +"px; min-height:"+ m.cardH +"px; padding:"+ m.padTop +"px 6px " + m.padBottom + "px 6px; box-sizing:border-box; cursor:url(data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%2724%27%20height=%2724%27%20viewBox=%270%200%2024%2024%27%3E%3Cpath%20fill=%27%231f2937%27%20d=%27M6.62%2010.79a15.053%2015.053%200%200%200%206.59%206.59l2.2-2.2a1%201%200%200%201%201.01-.24c1.12.37%202.33.57%203.58.57a1%201%200%200%201%201%201V20a1%201%200%200%201-1%201C10.85%2021%203%2013.15%203%204a1%201%200%200%201%201-1h3.49a1%201%200%200%201%201%201c0%201.25.2%202.46.57%203.58a1%201%200%200%201-.24%201.01z%27/%3E%3C/svg%3E) 4 20, pointer;'>"
+                    +   "<div style='display:flex; align-items:center; gap:"+ m.contentGap +"px; min-width:0;'>"
+                    +     "<span class='"+ dot +"'></span>"
                     +     "<div style='min-width:0;'>"
-                    +       "<div style='font-weight:600; font-size:13px; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:95px;'>"+ escHtml(ext) +"</div>"
-                    +       "<div class='sp-muted' style='font-size:11px; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:95px;'>"+ escHtml(displayName) +"</div>"
+                    +       "<div style='font-weight:600; font-size:"+ m.mainFont +"px; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:"+ m.textMaxW +"px;'>"+ escHtml(ext) +"</div>"
+                    +       "<div class='sp-muted' title='"+ escHtml(displayName || ext) +"' style='font-size:"+ m.subFont +"px; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:"+ m.textMaxW +"px;'>"+ escHtml(displayName) +"</div>"
                     +     "</div>"
                     +   "</div>"
                     + "</div>";
+                shown++;
             }
-            listEl.innerHTML = html;
-                    listEl.style.height = Math.max(140, maxBottom + m.pad) + 'px';
-                    if(needSave) saveDashboardPostes(postesOut);
+            if(shown === 0){
+                listEl.style.height = '140px';
+                listEl.innerHTML = filterText
+                    ? "<div class='sp-muted' style='padding:6px 0;'>Aucune carte ne correspond au filtre.</div>"
+                    : "<div class='sp-muted' style='padding:6px 0;'>Aucun poste. Utilisez le bouton + pour en ajouter.</div>";
+            } else {
+                listEl.innerHTML = html;
+                listEl.style.height = Math.max(140, maxBottom + m.pad) + 'px';
+            }
+            if(needSave) saveDashboardPostes(postesOut);
         }
 
         function reorderDashboardPostes(dragExt, targetExt, placeAfter){
@@ -2406,7 +2655,7 @@
         }
 
         function dashboardPickExt(it){
-            // Only keep internal extension-like values, exclude phone numbers.
+            // Keep numeric extension-like values; optional short-number filtering is applied in result rendering.
             function normalizeDigits(v){
                 return String(v == null ? '' : v).replace(/\s+/g, '').trim();
             }
@@ -2414,15 +2663,13 @@
                 var s = normalizeDigits(v);
                 if(!/^\d+$/.test(s)) return false;
                 var minLen = 2;
-                var maxLen = parseInt(localStorage.getItem('DashboardExtensionMaxLength') || '6', 10);
-                if(!isFinite(maxLen) || maxLen < minLen) maxLen = 6;
-                return s.length >= minLen && s.length <= maxLen;
+                return s.length >= minLen;
             }
             var preferred = [ it.extension, it.ext, it.internalNumber, it.sipId, it.uid ];
             for(var i=0;i<preferred.length;i++){
                 if(looksLikeExtension(preferred[i])) return normalizeDigits(preferred[i]);
             }
-            // Fallback on telephone field only if it still looks like a short internal extension.
+            // Fallback on telephone field only if it still looks like a numeric extension.
             if(looksLikeExtension(it.telephoneNumber)) return normalizeDigits(it.telephoneNumber);
             return null;
         }
@@ -2513,12 +2760,15 @@
 
         function renderDashboardSearchResults(items){
             if(!rightContentEl) return;
-            var out = rightContentEl.querySelector('#dashboardResults');
+            var root = rightPanel || rightContentEl;
+            var out = root.querySelector('#dashboardResults');
             if(!out) return;
             if(!Array.isArray(items) || items.length === 0){
                 out.innerHTML = "<div class='sp-muted'>Aucun résultat.</div>";
                 return;
             }
+            var shortOnlyEl = root.querySelector('#dashboard-short-only');
+            var shortOnly = !!(shortOnlyEl && shortOnlyEl.checked);
             var postes = getDashboardPostes();
             var inMap = {};
             for(var i=0;i<postes.length;i++) inMap[String(postes[i].ext || '')] = true;
@@ -2528,6 +2778,10 @@
                 var it = items[j] || {};
                 var ext = dashboardPickExt(it);
                 if(!ext) continue;
+                if(shortOnly){
+                    var shortDigits = String(dashboardStripPrefix(ext)).replace(/\D+/g, '');
+                    if(!shortDigits || shortDigits.length >= 6) continue;
+                }
                 var name = escHtml(dashboardBestName(it) || '');
                 var already = inMap[ext] === true;
                 var addBtn = already
@@ -2539,7 +2793,12 @@
                   + "</li>";
                 shown++;
             }
-            if(shown === 0){ out.innerHTML = "<div class='sp-muted'>Aucun résultat avec extension.</div>"; return; }
+            if(shown === 0){
+                out.innerHTML = shortOnly
+                    ? "<div class='sp-muted'>Aucun resultat avec numero court (&lt; 6 chiffres).</div>"
+                    : "<div class='sp-muted'>Aucun resultat avec extension.</div>";
+                return;
+            }
             h += "</ul>";
             out.innerHTML = h;
         }
@@ -2552,8 +2811,69 @@
             var dragOffsetX = 0;
             var dragOffsetY = 0;
             var dashboardSearchTimer = null;
+            var dashboardLastSearchItems = [];
             var tabMenuTargetId = '';
+            var tabEditorTargetId = '';
             var cardMenuTargetExt = '';
+
+            if(rightPanel && rightPanel.dataset.dashboardHeaderBound !== '1'){
+                rightPanel.dataset.dashboardHeaderBound = '1';
+                rightPanel.addEventListener('click', function(ev){
+                    if((rightPanel.getAttribute('data-type') || '') !== 'dashboard') return;
+                    var root = rightPanel;
+                    var sizeBtn = ev.target && ev.target.closest ? ev.target.closest('.dashboard-card-size-btn') : null;
+                    if(sizeBtn){
+                        var selectedSize = String(sizeBtn.getAttribute('data-size') || '').trim();
+                        if(selectedSize){
+                            var previousSize = getDashboardCardSize();
+                            setDashboardCardSize(selectedSize);
+                            if(String(previousSize) !== String(getDashboardCardSize())){
+                                relayoutDashboardPostes();
+                            }
+                            renderDashboardCardSizeCorner();
+                            renderDashboardPostes();
+                        }
+                        return;
+                    }
+                    var addOpt = ev.target && ev.target.closest ? ev.target.closest('.dashboard-poste-add') : null;
+                    if(addOpt){
+                        var ext = String(addOpt.getAttribute('data-ext') || '').trim();
+                        var name = String(addOpt.getAttribute('data-name') || '').trim();
+                        if(!ext) return;
+                        var postes = getDashboardPostes();
+                        var exists = postes.some(function(p){ return String(p.ext || '') === ext; });
+                        if(!exists){
+                            var listForAdd = rightContentEl ? rightContentEl.querySelector('#dashboard-postes-list') : null;
+                            var addWidth = listForAdd ? Math.floor(listForAdd.clientWidth || 0) : 260;
+                            var p = getDashboardNextCardPos(postes, addWidth);
+                            postes.push({ ext: ext, name: name, x: p.x, y: p.y });
+                            saveDashboardPostes(postes);
+                        }
+                        dashboardEnsureBuddySubscribe(name || ext, ext);
+                        renderDashboardPostes();
+                        var boxAdd = root.querySelector('#dashboard-search-zone');
+                        if(boxAdd) boxAdd.style.display = 'none';
+                        return;
+                    }
+                    var add = ev.target && ev.target.closest ? ev.target.closest('#dashboard-add-btn') : null;
+                    var box = root.querySelector('#dashboard-search-zone');
+                    if(add){
+                        if(!box) return;
+                        box.style.display = (box.style.display === 'block') ? 'none' : 'block';
+                        if(box.style.display === 'block'){
+                            var inp = root.querySelector('#txtFindDashboardFavorite');
+                            if(inp) inp.focus();
+                        }
+                        return;
+                    }
+                    if(box && box.style.display === 'block'){
+                        var inSearchZone = ev.target && ev.target.closest ? ev.target.closest('#dashboard-search-zone') : null;
+                        if(!inSearchZone){
+                            box.style.display = 'none';
+                        }
+                    }
+                });
+            }
 
             function ensureTabMenu(){
                 var existing = rightContentEl.querySelector('#dashboard-tab-menu');
@@ -2656,6 +2976,32 @@
                 return wrap;
             }
 
+            function ensureTabEditor(){
+                var existing = rightContentEl.querySelector('#dashboard-tab-editor');
+                if(existing) return existing;
+                var host = rightContentEl;
+                var wrap = document.createElement('div');
+                wrap.id = 'dashboard-tab-editor';
+                wrap.style.display = 'none';
+                wrap.style.position = 'absolute';
+                wrap.style.zIndex = '10053';
+                wrap.style.background = '#fff';
+                wrap.style.border = '1px solid rgba(0,0,0,0.16)';
+                wrap.style.borderRadius = '8px';
+                wrap.style.boxShadow = '0 8px 22px rgba(0,0,0,0.16)';
+                wrap.style.width = '220px';
+                wrap.style.padding = '8px';
+                wrap.innerHTML = ''
+                    + '<div class="sp-label" style="margin-bottom:4px;">Nom de l\'onglet</div>'
+                    + '<input id="dashboard-tab-edit-name" class="sp-input" type="text" style="margin-bottom:8px;" />'
+                    + '<div style="display:flex; gap:6px; justify-content:flex-end;">'
+                    + '<button id="dashboard-tab-edit-cancel" type="button" class="sp-button-surface" style="padding:6px 8px; border-radius:6px;">Annuler</button>'
+                    + '<button id="dashboard-tab-edit-save" type="button" class="sp-button-add" style="padding:6px 8px; border-radius:6px;">Valider</button>'
+                    + '</div>';
+                host.appendChild(wrap);
+                return wrap;
+            }
+
             function hideCardMenu(){
                 var m = rightContentEl.querySelector('#dashboard-card-menu');
                 if(m) m.style.display = 'none';
@@ -2665,6 +3011,12 @@
             function hideCardEditor(){
                 var e = rightContentEl.querySelector('#dashboard-card-editor');
                 if(e) e.style.display = 'none';
+            }
+
+            function hideTabEditor(){
+                var e = rightContentEl.querySelector('#dashboard-tab-editor');
+                if(e) e.style.display = 'none';
+                tabEditorTargetId = '';
             }
 
             function placeFloatingBox(el, x, y){
@@ -2695,6 +3047,7 @@
 
             ensureCardMenu();
             ensureCardEditor();
+            ensureTabEditor();
 
             rightContentEl.addEventListener('click', function(ev){
                 var cardEdit = ev.target && ev.target.closest ? ev.target.closest('#dashboard-card-menu-edit') : null;
@@ -2712,8 +3065,15 @@
                     if(!editor) return;
                     var inpExt = rightContentEl.querySelector('#dashboard-card-edit-ext');
                     var inpName = rightContentEl.querySelector('#dashboard-card-edit-name');
+                    var initialName = String(current.name || '').trim();
+                    if(!initialName){
+                        var buddyForName = findBuddyForExt(String(current.ext || ''));
+                        if(buddyForName){
+                            initialName = String(buddyForName.CallerIDName || buddyForName.DisplayName || buddyForName.Name || '').trim();
+                        }
+                    }
                     if(inpExt) inpExt.value = String(current.ext || '');
-                    if(inpName) inpName.value = String(current.name || '');
+                    if(inpName) inpName.value = initialName;
                     editor.setAttribute('data-ext-old', String(current.ext || ''));
                     editor.style.display = 'block';
                     var host = rightPanel || rightContentEl;
@@ -2759,16 +3119,48 @@
                     return;
                 }
 
+                var tabSave = ev.target && ev.target.closest ? ev.target.closest('#dashboard-tab-edit-save') : null;
+                if(tabSave){
+                    if(!tabEditorTargetId) return;
+                    var inputName = rightContentEl.querySelector('#dashboard-tab-edit-name');
+                    var newName = String((inputName && inputName.value) || '').trim();
+                    if(!newName) newName = 'Page';
+                    var stT = getDashboardState();
+                    for(var ti=0;ti<stT.pages.length;ti++){
+                        if(stT.pages[ti].id === tabEditorTargetId){ stT.pages[ti].name = newName; break; }
+                    }
+                    saveDashboardState(stT);
+                    renderDashboardTabs();
+                    hideTabEditor();
+                    return;
+                }
+
+                var tabCancel = ev.target && ev.target.closest ? ev.target.closest('#dashboard-tab-edit-cancel') : null;
+                if(tabCancel){
+                    hideTabEditor();
+                    return;
+                }
+
                 var menuRename = ev.target && ev.target.closest ? ev.target.closest('#dashboard-tab-menu-rename') : null;
                 if(menuRename){
                     if(!tabMenuTargetId) return;
                     var rid = tabMenuTargetId;
                     hideTabMenu();
-                    var nameEl = rightContentEl.querySelector('.dashboard-tab-name[data-id="'+ rid.replace(/"/g,'') +'"]');
-                    if(!nameEl) return;
-                    nameEl.setAttribute('contenteditable', 'true');
-                    nameEl.focus();
-                    try{ document.execCommand('selectAll', false, null); }catch(e){}
+                    tabEditorTargetId = rid;
+                    var stR = getDashboardState();
+                    var currentName = 'Page';
+                    for(var ri=0;ri<stR.pages.length;ri++){
+                        if(stR.pages[ri].id === rid){ currentName = String(stR.pages[ri].name || 'Page'); break; }
+                    }
+                    var tabEditor = ensureTabEditor();
+                    if(!tabEditor) return;
+                    var nameInput = rightContentEl.querySelector('#dashboard-tab-edit-name');
+                    if(nameInput) nameInput.value = currentName;
+                    tabEditor.style.display = 'block';
+                    var hostTR = rightPanel || rightContentEl;
+                    var rr = hostTR.getBoundingClientRect();
+                    placeFloatingBox(tabEditor, rr.left + (rr.width / 2), rr.top + (rr.height / 2));
+                    if(nameInput){ nameInput.focus(); nameInput.select(); }
                     return;
                 }
                 var menuDelete = ev.target && ev.target.closest ? ev.target.closest('#dashboard-tab-menu-delete') : null;
@@ -2802,6 +3194,20 @@
                 if(!(ev.target && ev.target.closest && ev.target.closest('#dashboard-card-editor'))){
                     hideCardEditor();
                 }
+                if(!(ev.target && ev.target.closest && ev.target.closest('#dashboard-tab-editor'))){
+                    hideTabEditor();
+                }
+
+                var cardClick = ev.target && ev.target.closest ? ev.target.closest('.dashboard-poste-card') : null;
+                if(cardClick){
+                    var dialExt = String(cardClick.getAttribute('data-ext') || '').trim();
+                    if(!dialExt) return;
+                    try{
+                        if(window.handleSidePanelNumberClick && window.handleSidePanelNumberClick(dialExt)) return;
+                        if(window.DialByLine){ window.DialByLine('audio', null, dialExt); }
+                    }catch(e){ console.warn(e); }
+                    return;
+                }
 
                 var tabAdd = ev.target && ev.target.closest ? ev.target.closest('#dashboard-tab-add') : null;
                 if(tabAdd){
@@ -2826,17 +3232,6 @@
                     }
                     return;
                 }
-                var add = ev.target && ev.target.closest ? ev.target.closest('#dashboard-add-btn') : null;
-                if(add){
-                    var box = rightContentEl.querySelector('#dashboard-search-zone');
-                    if(!box) return;
-                    box.style.display = (box.style.display === 'block') ? 'none' : 'block';
-                    if(box.style.display === 'block'){
-                        var inp = rightContentEl.querySelector('#txtFindDashboardFavorite');
-                        if(inp) inp.focus();
-                    }
-                    return;
-                }
                 var addOpt = ev.target && ev.target.closest ? ev.target.closest('.dashboard-poste-add') : null;
                 if(addOpt){
                     var ext = String(addOpt.getAttribute('data-ext') || '').trim();
@@ -2853,7 +3248,7 @@
                     }
                     dashboardEnsureBuddySubscribe(name || ext, ext);
                     renderDashboardPostes();
-                    var box2 = rightContentEl.querySelector('#dashboard-search-zone');
+                    var box2 = (rightPanel || rightContentEl).querySelector('#dashboard-search-zone');
                     if(box2) box2.style.display = 'none';
                     return;
                 }
@@ -2931,13 +3326,29 @@
                 }
             });
 
-            rightContentEl.addEventListener('input', function(ev){
+            rightContentEl.addEventListener('keydown', function(ev){
+                var tabInput = ev.target && ev.target.id === 'dashboard-tab-edit-name' ? ev.target : null;
+                if(!tabInput) return;
+                if(ev.key === 'Enter'){
+                    ev.preventDefault();
+                    var saveBtn = rightContentEl.querySelector('#dashboard-tab-edit-save');
+                    if(saveBtn) saveBtn.click();
+                }
+            });
+
+            rightPanel.addEventListener('input', function(ev){
+                var cardsFilter = ev.target && ev.target.id === 'dashboard-card-filter' ? ev.target : null;
+                if(cardsFilter){
+                    renderDashboardPostes();
+                    return;
+                }
                 var inp = ev.target && ev.target.id === 'txtFindDashboardFavorite' ? ev.target : null;
                 if(!inp) return;
-                var out = rightContentEl.querySelector('#dashboardResults');
+                var out = (rightPanel || rightContentEl).querySelector('#dashboardResults');
                 if(!out) return;
                 var q = String(inp.value || '').trim();
                 if(q.length < 2){
+                    dashboardLastSearchItems = [];
                     out.innerHTML = "<div class='sp-muted'>Saisissez au moins 2 caracteres...</div>";
                     return;
                 }
@@ -2948,12 +3359,29 @@
                         if(!resp || resp.ok !== true){
                             out.innerHTML = "<div class='sp-error'>"+ escHtml(resp && resp.error ? resp.error : 'Erreur recherche') +"</div>";
                         } else {
-                            renderDashboardSearchResults(resp.items || []);
+                            dashboardLastSearchItems = resp.items || [];
+                            renderDashboardSearchResults(dashboardLastSearchItems);
                         }
                     }).catch(function(err){
                         out.innerHTML = "<div class='sp-error'>"+ escHtml(err && err.message ? err.message : String(err)) +"</div>";
                     });
                 }, 350);
+            });
+
+            rightPanel.addEventListener('change', function(ev){
+                var chk = ev.target && ev.target.id === 'dashboard-short-only' ? ev.target : null;
+                if(!chk) return;
+                if(Array.isArray(dashboardLastSearchItems) && dashboardLastSearchItems.length > 0){
+                    renderDashboardSearchResults(dashboardLastSearchItems);
+                    return;
+                }
+                var out = (rightPanel || rightContentEl).querySelector('#dashboardResults');
+                if(!out) return;
+                var inp = (rightPanel || rightContentEl).querySelector('#txtFindDashboardFavorite');
+                var q = String((inp && inp.value) || '').trim();
+                out.innerHTML = q.length < 2
+                    ? "<div class='sp-muted'>Saisissez au moins 2 caracteres...</div>"
+                    : "<div class='sp-muted'>Lancez une recherche...</div>";
             });
 
             rightContentEl.addEventListener('dragstart', function(ev){
@@ -3017,6 +3445,7 @@
             if(agentBtn) agentBtn.style.display = 'none';
             var dashboardBtn = $("nav-dashboard");
             if(dashboardBtn) dashboardBtn.style.display = 'none';
+            var favoritesBtn = $("nav-favoris");
 
             var apiExt = ext;
             try{
@@ -3064,6 +3493,16 @@
                     if(vmBtn) vmBtn.style.display = hasVoicemail ? '' : 'none';
                     if(agentBtn) agentBtn.style.display = hasAgent ? '' : 'none';
                     if(dashboardBtn) dashboardBtn.style.display = hasDashboard ? '' : 'none';
+                    if(favoritesBtn) favoritesBtn.style.display = hasDashboard ? 'none' : '';
+                    document.body.classList.toggle('has-dashboard', hasDashboard);
+
+                    // Open dashboard by default once on startup when the menu exposes it.
+                    if(hasDashboard && dashboardBtn && !dashboardAutoOpened){
+                        dashboardAutoOpened = true;
+                        setTimeout(function(){
+                            try{ dashboardBtn.click(); }catch(e){}
+                        }, 0);
+                    }
                 })
                 .catch(function(err){
                     console.warn('get_menu échoué', err);
@@ -3097,17 +3536,7 @@
                             + "<div style='min-height:calc(100vh - 64px - 50px); padding:12px; box-sizing:border-box;'>"
                             +   "<div style='min-width:0; display:flex; flex-direction:column; position:relative;'>"
                             +     "<div id='dashboard-tabs' style='display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;'></div>"
-                            +     "<div class='sp-text' style='margin-bottom:8px;'>Contenu principal</div>"
-                            +     "<div id='dashboard-postes-list' style='flex:1 1 auto; position:relative; display:block; min-height:180px; padding-bottom:54px;'></div>"
-                            +     "<div style='position:absolute; left:0; bottom:0;'>"
-                            +       "<button id='dashboard-add-btn' type='button' class='roundButtons' title='Ajouter un poste'>"
-                            +           "<i class='fa fa-user-plus'></i>"
-                            +       "</button>"
-                            +       "<div id='dashboard-search-zone' style='display:none; margin-top:6px; width:260px; max-width:70vw; background:#fff; border:1px solid rgba(0,0,0,0.12); border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.12); padding:8px;'>"
-                            +           "<label for='txtFindDashboardFavorite' class='sp-label'>Rechercher dans l'annuaire</label>"
-                            +           "<input id='txtFindDashboardFavorite' type='text' placeholder='Nom ou extension...' autocomplete='off' class='sp-input' />"
-                            +           "<div id='dashboardResults' style='margin-top:8px; min-height:24px; max-height:220px; overflow:auto;'></div>"
-                            +       "</div>"
+                            +     "<div id='dashboard-postes-list' style='flex:1 1 auto; position:relative; display:block; min-height:180px; padding-bottom:4px;'></div>"
                             +       "<div id='dashboard-tab-menu' style='display:none; position:fixed; z-index:10050; background:#fff; border:1px solid rgba(0,0,0,0.16); border-radius:8px; box-shadow:0 8px 22px rgba(0,0,0,0.16); min-width:140px; overflow:hidden;'>"
                             +           "<button id='dashboard-tab-menu-rename' type='button' class='sp-button-surface' style='display:block; width:100%; text-align:left; border:0; border-bottom:1px solid rgba(0,0,0,0.08); padding:8px 10px;'>Renommer</button>"
                             +           "<button id='dashboard-tab-menu-delete' type='button' class='sp-button-surface' style='display:block; width:100%; text-align:left; border:0; padding:8px 10px; color:#b91c1c;'>Supprimer</button>"
@@ -3382,6 +3811,10 @@
                             +   "<div id='favList' style='margin-bottom:12px;'></div>"
                             +   "<div id='favSearchZone' style='display:none;'>"
                             +       "<label for='txtFindFavorite' class='sp-label'>Rechercher dans l'annuaire</label>"
+                            +       "<div style='margin:4px 0 6px;'>"
+                            +           "<input id='fav-short-only' type='checkbox' />"
+                            +           "<label for='fav-short-only' style='font-size:12px; cursor:pointer;'>Num Court</label>"
+                            +       "</div>"
                             +       "<input id='txtFindFavorite' type='text' placeholder='Nom ou extension…' autocomplete='off' class='sp-input' />"
                             +       "<div id='favResults' style='margin-top:10px; min-height:24px;'></div>"
                             +   "</div>"
@@ -3471,7 +3904,7 @@
                                 return String(plain || '').trim();
                             }
                             function pickExt(it){
-                                // Only keep internal extension-like values, exclude phone numbers.
+                                // Keep numeric extension-like values; short-number filter is handled in renderFavResults.
                                 function normalizeDigits(v){
                                     return String(v == null ? '' : v).replace(/\s+/g, '').trim();
                                 }
@@ -3479,15 +3912,13 @@
                                     var s = normalizeDigits(v);
                                     if(!/^\d+$/.test(s)) return false;
                                     var minLen = 2;
-                                    var maxLen = parseInt(localStorage.getItem('FavoritesExtensionMaxLength') || '6', 10);
-                                    if(!isFinite(maxLen) || maxLen < minLen) maxLen = 6;
-                                    return s.length >= minLen && s.length <= maxLen;
+                                    return s.length >= minLen;
                                 }
                                 var preferred = [ it.extension, it.ext, it.internalNumber, it.sipId, it.uid ];
                                 for(var i=0;i<preferred.length;i++){
                                     if(looksLikeExtension(preferred[i])) return normalizeDigits(preferred[i]);
                                 }
-                                // Fallback on telephone field only if it still looks like a short internal extension.
+                                // Fallback on telephone field only if it still looks like a numeric extension.
                                 if(looksLikeExtension(it.telephoneNumber)) return normalizeDigits(it.telephoneNumber);
                                 return null;
                             }
@@ -3509,12 +3940,18 @@
                             function toList(v){ if(v == null) return []; return Array.isArray(v) ? v : [v]; }
                             function renderFavResults(items){
                                 if(!Array.isArray(items) || items.length===0) return "<div>Aucun résultat.</div>";
+                                var shortOnlyEl = document.getElementById('fav-short-only');
+                                var shortOnly = !!(shortOnlyEl && shortOnlyEl.checked);
                                 var h = "<ul style='list-style:none; margin:0; padding:0;'>";
                                 var shown = 0;
                                 for(var i=0;i<items.length;i++){
                                     var it = items[i] || {};
                                     var ext = pickExt(it);
                                     if(!ext) continue; // n'afficher que les contacts avec extension
+                                    if(shortOnly){
+                                        var shortDigits = String(stripPrefixForDisplay(ext)).replace(/\D+/g, '');
+                                        if(!shortDigits || shortDigits.length >= 6) continue;
+                                    }
                                     var name = esc(bestName(it) || '');
                                     var mobiles = toList(it.mobile).map(String);
                                     var email = escHtml(it.mail || it.email || '');
@@ -3528,7 +3965,11 @@
                                         + "</li>";
                                     shown++;
                                 }
-                                if(shown === 0) return "<div>Aucun résultat avec extension.</div>";
+                                if(shown === 0){
+                                    return shortOnly
+                                        ? "<div>Aucun resultat avec numero court (&lt; 6 chiffres).</div>"
+                                        : "<div>Aucun resultat avec extension.</div>";
+                                }
                                 h += "</ul>";
                                 return h;
                             }
@@ -3796,6 +4237,7 @@
                             var favZone   = document.getElementById('favSearchZone');
                             var favInput  = document.getElementById('txtFindFavorite');
                             var favRes    = document.getElementById('favResults');
+                            var favLastSearchItems = [];
                             if(!favAddBtn || !favZone) return;
                             favAddBtn.addEventListener('click', function(){
                                 favZone.style.display = 'block';
@@ -3808,13 +4250,14 @@
                             var doSearchFav = debounce(function(){
                                 if(!favInput || !favRes) return;
                                 var q = favInput.value || '';
-                                if(q.trim().length < 2){ favRes.innerHTML = "<div>Saisissez au moins 2 caractères…</div>"; sizePanelToContent(); return; }
+                                if(q.trim().length < 2){ favLastSearchItems = []; favRes.innerHTML = "<div>Saisissez au moins 2 caractères…</div>"; sizePanelToContent(); return; }
                                 favRes.innerHTML = "<div><span class='fa fa-circle-o-notch fa-spin'></span> Recherche…</div>";
                                 window.searchContactsApi(q).then(function(resp){
                                     if(!resp || resp.ok !== true){
                                         favRes.innerHTML = "<div class='sp-error'>"+ esc(resp && resp.error ? resp.error : 'Erreur recherche') +"</div>";
                                     } else {
-                                        favRes.innerHTML = renderFavResults(resp.items || []);
+                                        favLastSearchItems = resp.items || [];
+                                        favRes.innerHTML = renderFavResults(favLastSearchItems);
                                         bindAddButtons();
                                     }
                                     sizePanelToContent();
@@ -3824,6 +4267,22 @@
                                 });
                             }, 350);
                             if(favInput) favInput.addEventListener('input', doSearchFav);
+                            var favShortOnly = document.getElementById('fav-short-only');
+                            if(favShortOnly){
+                                favShortOnly.addEventListener('change', function(){
+                                    if(!favRes) return;
+                                    if(Array.isArray(favLastSearchItems) && favLastSearchItems.length > 0){
+                                        favRes.innerHTML = renderFavResults(favLastSearchItems);
+                                        bindAddButtons();
+                                    } else {
+                                        var q = String((favInput && favInput.value) || '').trim();
+                                        favRes.innerHTML = q.length < 2
+                                            ? "<div>Saisissez au moins 2 caractères…</div>"
+                                            : "<div>Lancez une recherche…</div>";
+                                    }
+                                    sizePanelToContent();
+                                });
+                            }
                             // Charger la liste des favoris existants dès l'ouverture
                             loadFavorites();
                             // Écouter les NOTIFY pour rafraîchir les présences des favoris
