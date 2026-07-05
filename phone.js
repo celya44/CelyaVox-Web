@@ -159,6 +159,9 @@ let EnableVideoCalling = (getDbItem("EnableVideoCalling", "1") == "1");         
 let EnableTextExpressions = (getDbItem("EnableTextExpressions", "1") == "1");           // Enables Expressions (Emoji) glyphs when texting
 let EnableTextDictate = (getDbItem("EnableTextDictate", "1") == "1");                   // Enables Dictate (speech-to-text) when texting
 let EnableRingtone = (getDbItem("EnableRingtone", "1") == "1");                         // Enables a ring tone when an inbound call comes in.  (media/Ringtone_1.mp3)
+let EnableAnswerBeep = (getDbItem("EnableAnswerBeep", "1") == "1");                     // Enables a beep sound when a call is answered/picked up
+let EnableHangupBeep = (getDbItem("EnableHangupBeep", "1") == "1");                     // Enables a beep sound when a call is hung up
+let BeepSound = getDbItem("BeepSound", "Alert");                                        // Selects which audio file to use for beep sounds (Alert, Busy_UK, Busy_US, CallWaiting, etc.)
 let MaxBuddies = parseInt(getDbItem("MaxBuddies", 999));                                // Sets the Maximum number of buddies the system will accept. Older ones get deleted. (Considered when(after) adding buddies)
 let MaxBuddyAge = parseInt(getDbItem("MaxBuddyAge", 365));                              // Sets the Maximum age in days (by latest activity). Older ones get deleted. (Considered when(after) adding buddies)
 let AutoDeleteDefault = (getDbItem("AutoDeleteDefault", "1") == "1");                   // For automatically created buddies (inbound and outbound), should the buddy be set to AutoDelete.
@@ -807,6 +810,9 @@ $(document).ready(function () {
     if(options.EnableTextExpressions !== undefined) EnableTextExpressions = options.EnableTextExpressions;
     if(options.EnableTextDictate !== undefined) EnableTextDictate = options.EnableTextDictate;
     if(options.EnableRingtone !== undefined) EnableRingtone = options.EnableRingtone;
+    if(options.EnableAnswerBeep !== undefined) EnableAnswerBeep = options.EnableAnswerBeep;
+    if(options.EnableHangupBeep !== undefined) EnableHangupBeep = options.EnableHangupBeep;
+    if(options.BeepSound !== undefined) BeepSound = options.BeepSound;
     if(options.MaxBuddies !== undefined) MaxBuddies = options.MaxBuddies;
     if(options.MaxBuddyAge !== undefined) MaxBuddyAge = options.MaxBuddyAge;
     if(options.ChatEngine !== undefined) ChatEngine = options.ChatEngine;
@@ -2479,6 +2485,38 @@ function PreloadAudioFiles(){
     // console.log(audioBlobs);
 }
 
+// Play a beep sound for call answered/hung up events
+// ====================================================
+function playBeepSound() {
+    // Use the selected beep sound, default to Alert if not found
+    var selectedSound = audioBlobs[BeepSound] || audioBlobs.Alert;
+    
+    if(selectedSound && selectedSound.blob) {
+        try {
+            var beep = new Audio(selectedSound.blob);
+            beep.volume = getRingerGain();
+            beep.preload = "auto";
+            beep.loop = false;
+            beep.oncanplaythrough = function(e) {
+                if (typeof beep.sinkId !== 'undefined' && getRingerOutputID() != "default") {
+                    beep.setSinkId(getRingerOutputID()).then(function() {
+                        console.log("Set sinkId to:", getRingerOutputID());
+                    }).catch(function(e){
+                        console.warn("Failed to apply setSinkId.", e);
+                    });
+                }
+                beep.play().then(function(){
+                    // Beep is playing
+                }).catch(function(e){
+                    console.warn("Unable to play beep sound.", e);
+                }); 
+            }
+        } catch(e) {
+            console.warn("Error playing beep sound:", e);
+        }
+    }
+}
+
 // Create User Agent
 // =================
 function CreateUserAgent() {
@@ -3633,6 +3671,12 @@ function onInviteCancel(lineObj, response){
             window.electron.send('call-cancelled');
         }
 
+        // Play beep sound when call is cancelled by remote party
+        if(EnableHangupBeep == true){
+            console.log("Playing hangup beep sound (call cancelled by remote party)");
+            playBeepSound();
+        }
+
         lineObj.SipSession.dispose().catch(function(error){
             console.log("Failed to dispose the cancel dialog", error);
         })
@@ -3664,6 +3708,18 @@ function onInviteAccepted(lineObj, includeVideo, response){
     }, 1000);
     session.isOnHold = false;
     session.data.started = true;
+
+    // Play beep sound when call is answered (outbound calls only - 200 OK only)
+    if(EnableAnswerBeep == true && session.data.calldirection == "outbound"){
+        // Only play beep for 200 OK response, not for provisional responses like 180/183
+        if(response && response.message && response.message.statusCode == 200){
+            console.log("Playing answer beep sound (outbound call - 200 OK received)");
+            playBeepSound();
+        }
+        else {
+            console.log("Outbound call response received, status:", response && response.message ? response.message.statusCode : "unknown");
+        }
+    }
 
     if(includeVideo){
         // Preview our stream from peer connection
@@ -3843,6 +3899,12 @@ function onInviteProgress(lineObj, response){
 function onInviteRejected(lineObj, response){
     console.log("INVITE Rejected:", response.message.reasonPhrase);
 
+    // Play beep sound when call is rejected (inbound calls only)
+    if(EnableHangupBeep == true && lineObj.SipSession.data.calldirection == "inbound"){
+        console.log("Playing hangup beep sound (inbound call - call rejected)");
+        playBeepSound();
+    }
+
     lineObj.SipSession.data.terminateby = "them";
     lineObj.SipSession.data.reasonCode = response.message.statusCode;
     lineObj.SipSession.data.reasonText = response.message.reasonPhrase;
@@ -3859,6 +3921,12 @@ function onSessionReceivedBye(lineObj, response){
     // They Ended the call
     $("#line-" + lineObj.LineNumber + "-msg").html(lang.call_ended);
     console.log("Call ended, bye!");
+
+    // Play beep sound when correspondant hangs up
+    if(EnableHangupBeep == true){
+        console.log("Playing hangup beep sound (correspondant hung up)");
+        playBeepSound();
+    }
 
     lineObj.SipSession.data.terminateby = "them";
     lineObj.SipSession.data.reasonCode = 16;
@@ -8891,6 +8959,7 @@ function endSession(lineNum) {
     });
 
     $("#line-" + lineNum + "-msg").html(lang.call_ended);
+
     $("#line-" + lineNum + "-ActiveCall").hide();
 
     teardownSession(lineObj);
@@ -13167,6 +13236,12 @@ function ShowMyProfile(){
     AudioVideoHtml += "<div><button class=roundButtons id=preview_ringer_play><i class=\"fa fa-play\"></i></button></div>";
     AudioVideoHtml += "</div>";
 
+    AudioVideoHtml += "<div id=BeepSoundSection>";
+    AudioVideoHtml += "<div class=UiText>"+ (lang.beep_sound || "Signal sonore (décrochage/raccrochage)") +":</div>";
+    AudioVideoHtml += "<div style=\"text-align:center\"><select id=beepSound style=\"width:100%\"></select></div>";
+    AudioVideoHtml += "<div><button class=roundButtons id=preview_beep_play><i class=\"fa fa-play\"></i></button></div>";
+    AudioVideoHtml += "</div>";
+
     AudioVideoHtml += "<div class=UiText>"+ lang.microphone +":</div>";
     AudioVideoHtml += "<div style=\"text-align:center\"><select id=microphoneSrc style=\"width:100%\"></select></div>";
     AudioVideoHtml += "<div class=Settings_VolumeOutput_Container><div id=Settings_MicrophoneOutput class=Settings_VolumeOutput></div></div>";
@@ -14144,6 +14219,39 @@ function ShowMyProfile(){
         else {
             Alert(lang.alert_media_devices, lang.error);
         }
+
+        // Beep Sound Selection
+        var selectBeepSound = $("#beepSound");
+        
+        // Populate beep sound options
+        var beepSoundList = ["Alert", "Busy_UK", "Busy_US", "CallWaiting", "Congestion_UK", "Congestion_US", 
+                             "EarlyMedia_European", "EarlyMedia_UK", "EarlyMedia_US", "EarlyMedia_Australia", "EarlyMedia_Japan"];
+        
+        $.each(beepSoundList, function(i, soundName) {
+            if(audioBlobs[soundName]) {
+                var option = $('<option/>');
+                option.prop("value", soundName);
+                if(BeepSound == soundName) option.prop("selected", true);
+                option.text(soundName);
+                selectBeepSound.append(option);
+            }
+        });
+        
+        // Handle beep sound change
+        selectBeepSound.change(function(){
+            console.log("Call to change Beep Sound ("+ this.value +")");
+            BeepSound = this.value;
+            localDB.setItem("BeepSound", BeepSound);
+            // Play the selected beep sound
+            playBeepSound();
+        });
+        
+        // Beep Sound Preview Button
+        var playBeepButton = $("#preview_beep_play");
+        playBeepButton.click(function(){
+            console.log("Playing beep sound preview: ", BeepSound);
+            playBeepSound();
+        });
 
         // Appearance
         if(EnableAppearanceSettings){
