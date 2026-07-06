@@ -2590,3 +2590,64 @@ input[type=range]{
     top: 20px;
 }
 
+/* Dashboard Tabs - Intercalaires de Classeur */
+.dashboard-tab {
+    display: inline-flex !important;
+    align-items: center;
+    position: relative;
+    background: #6b7280 !important;
+    color: #f3f4f6 !important;
+    border: 0 !important;
+    border-radius: 0 8px 0 0 !important;
+    padding: 8px 12px 8px 14px !important;
+    margin-right: 4px !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 2px -2px 4px rgba(0,0,0,0.1), inset -1px 0 1px rgba(255,255,255,0.2) !important;
+    clip-path: polygon(0 8px, 0 100%, 100% 100%, 100% 0, 8px 0) !important;
+}
+
+.dashboard-tab:hover {
+    background: #4b5563 !important;
+    box-shadow: 3px -3px 6px rgba(0,0,0,0.15), inset -1px 0 1px rgba(255,255,255,0.3) !important;
+    transform: translateY(-2px);
+}
+
+.dashboard-tab--active {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    z-index: 100 !important;
+    box-shadow: 3px -3px 8px rgba(0,0,0,0.2), inset -1px 0 1px rgba(255,255,255,0.3) !important;
+}
+
+.dashboard-tab--active:hover {
+    background: #1d4ed8 !important;
+    box-shadow: 4px -4px 10px rgba(0,0,0,0.25), inset -1px 0 1px rgba(255,255,255,0.3) !important;
+    transform: translateY(-3px);
+}
+
+.dashboard-tab::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: rgba(255,255,255,0.3);
+    border-radius: 0 2px 0 0;
+}
+
+.dashboard-tab--active::before {
+    background: #fbbf24 !important;
+}
+
+.dashboard-tab-name {
+    font-size: 12px !important;
+    max-width: 120px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+

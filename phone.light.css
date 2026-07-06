@@ -435,3 +435,23 @@ input[type=radio]:checked + label:before {
 .CallColorUnderlay{
     background-image: radial-gradient(circle, transparent, #f6f6f6);
 }
+
+/* Dashboard Tabs - Mode Clair */
+.dashboard-tab {
+    background: #9ca3af !important;
+    color: #ffffff !important;
+}
+
+.dashboard-tab:hover {
+    background: #6b7280 !important;
+}
+
+.dashboard-tab--active {
+    background: #2563eb !important;
+    color: #ffffff !important;
+}
+
+.dashboard-tab--active:hover {
+    background: #1d4ed8 !important;
+}
+}

@@ -460,6 +460,12 @@
             }
             var web_hook_on_terminate = function(session){
                 // console.log("web_hook_on_terminate", session);
+                // Rafraîchir l'historique des appels si le panneau est ouvert
+                try{
+                    if(typeof window.refreshHistoryIfOpen === 'function'){
+                        window.refreshHistoryIfOpen();
+                    }
+                }catch(e){ /* ignore */ }
             }
             var web_hook_on_notify = function(ContentType, buddyObj, notify){
                 // console.log("web_hook_on_notify", ContentType, buddyObj, notify);
@@ -2352,7 +2358,7 @@
                     cardH: 30,
                     gap: 8,
                     pad: 8,
-                    grid: 14,
+                    grid: 8,
                     textMaxW: 88,
                     mainFont: 12,
                     subFont: 10,
@@ -2368,7 +2374,7 @@
                     cardH: 40,
                     gap: 10,
                     pad: 8,
-                    grid: 18,
+                    grid: 10,
                     textMaxW: 142,
                     mainFont: 15,
                     subFont: 12,
@@ -2384,7 +2390,7 @@
                     cardH: 48,
                     gap: 10,
                     pad: 8,
-                    grid: 22,
+                    grid: 10,
                     textMaxW: 178,
                     mainFont: 17,
                     subFont: 14,
@@ -2399,7 +2405,7 @@
                 cardH: 34,
                 gap: 8,
                 pad: 8,
-                grid: 16,
+                grid: 8,
                 textMaxW: 108,
                 mainFont: 13,
                 subFont: 11,
@@ -2482,12 +2488,17 @@
             for(var i=0;i<state.pages.length;i++){
                 var p = state.pages[i];
                 var active = p.id === state.activeId;
+                var zIndex = (state.pages.length - i) + (active ? 100 : 0);
+                var topOffset = i * 2;
+                var bgColor = active ? "#2563eb" : "#6b7280";
+                var textColor = active ? "#fff" : "#f3f4f6";
                 html += ""
-                    + "<div class='dashboard-tab"+ (active ? " dashboard-tab--active" : "") +"' data-id='"+ escHtml(p.id) +"' style='display:inline-flex; align-items:center; gap:6px; border:1px solid rgba(0,0,0,0.12); border-radius:8px; padding:4px 8px; background:"+ (active ? "#eef4ff" : "#fff") +";'>"
-                    +   "<span class='dashboard-tab-name' data-id='"+ escHtml(p.id) +"' style='font-size:12px; max-width:120px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;'>"+ escHtml(p.name || 'Page') +"</span>"
+                    + "<div class='dashboard-tab"+ (active ? " dashboard-tab--active" : "") +"' data-id='"+ escHtml(p.id) +"' style='position:relative; display:inline-flex; align-items:center; gap:8px; padding:8px 12px 8px 14px; margin-right:4px; margin-top:"+ topOffset +"px; background:"+ bgColor +"; color:"+ textColor +"; border:0; border-radius:0 8px 0 0; box-shadow:2px -2px 4px rgba(0,0,0,0.1), inset -1px 0 1px rgba(255,255,255,0.2); z-index:"+ zIndex +"; cursor:pointer; transition:all 0.2s ease; clip-path:polygon(0 8px, 0 100%, 100% 100%, 100% 0, 8px 0);'>"
+                    +   "<span class='dashboard-tab-name' data-id='"+ escHtml(p.id) +"' style='font-size:12px; max-width:120px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:"+ (active ? "600" : "500") +";'>"+ escHtml(p.name || 'Page') +"</span>"
+                    +   "<div style='position:absolute; left:0; top:0; bottom:0; width:3px; background:"+ (active ? "#fbbf24" : "rgba(255,255,255,0.3)") +"; border-radius:0 2px 0 0;'></div>"
                     + "</div>";
             }
-            html += "<button type='button' id='dashboard-tab-add' class='roundButtons' title='Ajouter une page' style='width:24px; height:24px; min-width:24px; line-height:24px;'><i class='fa fa-plus' style='font-size:12px;'></i></button>";
+            html += "<button type='button' id='dashboard-tab-add' class='roundButtons' title='Ajouter une page' style='width:24px; height:24px; min-width:24px; line-height:24px; margin-left:4px;'><i class='fa fa-plus' style='font-size:12px;'></i></button>";
             tabsEl.innerHTML = html;
         }
 
@@ -4300,6 +4311,18 @@
         });
 
         try{ updateBottomMenuFromApi(); }catch(e){}
+
+        // Exposer une fonction globale pour rafraîchir l'historique si ouvert
+        window.refreshHistoryIfOpen = function(){
+            try{
+                if(panel && panel.classList.contains('sidepanel--open') && panel.getAttribute('data-type') === 'history'){
+                    if(typeof loadHistory === 'function'){
+                        console.log('[Historique] Rafraîchissement après raccroché');
+                        loadHistory();
+                    }
+                }
+            }catch(e){ console.error('refreshHistoryIfOpen error', e); }
+        };
     })();
     </script>
 

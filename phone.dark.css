@@ -562,3 +562,23 @@ input[type=checkbox]:checked + label:before {
 .CallColorUnderlay{
     background-image: radial-gradient(circle, transparent, #2a2a2a);
 }
+
+/* Dashboard Tabs - Mode Sombre */
+.dashboard-tab {
+    background: #3f4652 !important;
+    color: #e5e7eb !important;
+}
+
+.dashboard-tab:hover {
+    background: #4b5563 !important;
+}
+
+.dashboard-tab--active {
+    background: #1e40af !important;
+    color: #ffffff !important;
+}
+
+.dashboard-tab--active:hover {
+    background: #1d4ed8 !important;
+}
+}

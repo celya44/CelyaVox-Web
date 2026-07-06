@@ -2936,6 +2936,12 @@ function ReceiveCall(session) {
 
     console.log("New Incoming Call!", callerID +" <"+ did +">");
 
+    // Store call info for notification when minimized
+    if (typeof window.setCelyavoxCallInfo === 'function') {
+        window.setCelyavoxCallInfo({ name: callerID, number: did });
+        console.log('[ReceiveCall] Call info stored:', { name: callerID, number: did });
+    }
+
     var CurrentCalls = countSessions(session.id);
     console.log("Current Call Count:", CurrentCalls);
 
@@ -3034,13 +3040,6 @@ function ReceiveCall(session) {
     lineObj.SipSession.data.src = did;
     lineObj.SipSession.data.buddyId = lineObj.BuddyObj.identity;
     lineObj.SipSession.data.callstart = startTime.format("YYYY-MM-DD HH:mm:ss UTC");
-    lineObj.SipSession.data.callTimer = window.setInterval(function(){
-        var now = moment.utc();
-        var duration = moment.duration(now.diff(startTime));
-        var timeStr = formatShortDuration(duration.asSeconds());
-        $("#line-" + lineObj.LineNumber + "-timer").html(timeStr);
-        $("#line-" + lineObj.LineNumber + "-datetime").html(timeStr);
-    }, 1000);
     lineObj.SipSession.data.earlyReject = false;
     Lines.push(lineObj);
     // Detect Video
@@ -3629,6 +3628,20 @@ function RejectCall(lineNumber) {
     session.data.terminateby = "us";
     session.data.reasonCode = 486;
     session.data.reasonText = "Busy Here";
+
+    // Capture caller info for notification when minimized (user initiated hangup)
+    if (session.state == SIP.SessionState.Established) {
+        var callerName = (lineObj.BuddyObj && lineObj.BuddyObj.CallerIDName) ? lineObj.BuddyObj.CallerIDName : '';
+        var callerNumber = (lineObj.SipSession && lineObj.SipSession.data && lineObj.SipSession.data.src) ? lineObj.SipSession.data.src : '';
+        console.log("[RejectCall] Caller info captured for notification:", { callerName, callerNumber });
+        
+        // Notify main process about hangup (for minimized window notification)
+        if (window && window.electron && typeof window.electron.send === "function") {
+            console.log("[Electron] Sending call-hangup event for user-initiated hangup");
+            window.electron.send('call-hangup', { callerName, callerNumber });
+        }
+    }
+
     teardownSession(lineObj);
 }
 
@@ -3933,6 +3946,17 @@ function onSessionReceivedBye(lineObj, response){
     lineObj.SipSession.data.reasonText = "Normal Call clearing";
 
     response.accept(); // Send OK
+
+    // Capture caller info BEFORE teardownSession clears it
+    var callerName = (lineObj.BuddyObj && lineObj.BuddyObj.CallerIDName) ? lineObj.BuddyObj.CallerIDName : '';
+    var callerNumber = (lineObj.SipSession && lineObj.SipSession.data && lineObj.SipSession.data.src) ? lineObj.SipSession.data.src : '';
+    console.log("[onSessionReceivedBye] Caller info captured:", { callerName, callerNumber });
+
+    // Notify main process about hangup (for minimized window notification)
+    if (window && window.electron && typeof window.electron.send === "function") {
+        console.log("[Electron] Sending call-cancelled event for hangup notification");
+        window.electron.send('call-cancelled', { callerName, callerNumber });
+    }
 
     teardownSession(lineObj);
 }
@@ -4290,17 +4314,34 @@ function teardownSession(lineObj) {
     // Add to stream
     AddCallMessage(lineObj.BuddyObj.identity, session);
 
+    // Clear call info since the call is ending
+    if (typeof window.setCelyavoxCallInfo === 'function') {
+        window.setCelyavoxCallInfo({ name: '', number: '' });
+        console.log('[teardownSession] Call info cleared');
+    }
+
     // Check if this call was missed
     if (session.data.calldirection == "inbound"){
+        var isMissedCall = false;
         if(session.data.earlyReject){
             // Call was rejected without even ringing
             IncreaseMissedBadge(session.data.buddyId);
+            isMissedCall = true;
         } else if (session.data.terminateby == "them" && session.data.startTime == null){
             // Call Terminated by them during ringing
             if(session.data.reasonCode == 0){
                 // Call was canceled, and not answered elsewhere 
                 IncreaseMissedBadge(session.data.buddyId);
+                isMissedCall = true;
             }
+        }
+        
+        // Notify main process about missed call for minimized window notification
+        if (isMissedCall && window && window.electron && typeof window.electron.send === "function") {
+            var callerName = (lineObj.BuddyObj && lineObj.BuddyObj.CallerIDName) ? lineObj.BuddyObj.CallerIDName : '';
+            var callerNumber = (lineObj.SipSession && lineObj.SipSession.data && lineObj.SipSession.data.src) ? lineObj.SipSession.data.src : '';
+            console.log("[teardownSession] Missed call detected, notifying main process:", { callerName, callerNumber });
+            window.electron.send('missed-call', { callerName, callerNumber });
         }
     }
     
@@ -6699,7 +6740,6 @@ function VideoCall(lineObj, dialledNumber, extraHeaders) {
     }
 
     $("#line-" + lineObj.LineNumber + "-msg").html(lang.starting_video_call);
-    $("#line-" + lineObj.LineNumber + "-timer").show();
 
     var startTime = moment.utc();
 
@@ -6714,13 +6754,6 @@ function VideoCall(lineObj, dialledNumber, extraHeaders) {
     lineObj.SipSession.data.calldirection = "outbound";
     lineObj.SipSession.data.dst = dialledNumber;
     lineObj.SipSession.data.callstart = startTime.format("YYYY-MM-DD HH:mm:ss UTC");
-    lineObj.SipSession.data.callTimer = window.setInterval(function(){
-        var now = moment.utc();
-        var duration = moment.duration(now.diff(startTime)); 
-        var timeStr = formatShortDuration(duration.asSeconds());
-        $("#line-" + lineObj.LineNumber + "-timer").html(timeStr);
-        $("#line-" + lineObj.LineNumber + "-datetime").html(timeStr);
-    }, 1000);
     lineObj.SipSession.data.VideoSourceDevice = getVideoSrcID();
     lineObj.SipSession.data.AudioSourceDevice = getAudioSrcID();
     lineObj.SipSession.data.AudioOutputDevice = getAudioOutputID();
@@ -6912,7 +6945,6 @@ function AudioCall(lineObj, dialledNumber, extraHeaders) {
     }
 
     $("#line-" + lineObj.LineNumber + "-msg").html(lang.starting_audio_call);
-    $("#line-" + lineObj.LineNumber + "-timer").show();
 
     var startTime = moment.utc();
 
@@ -6927,13 +6959,6 @@ function AudioCall(lineObj, dialledNumber, extraHeaders) {
     lineObj.SipSession.data.calldirection = "outbound";
     lineObj.SipSession.data.dst = dialledNumber;
     lineObj.SipSession.data.callstart = startTime.format("YYYY-MM-DD HH:mm:ss UTC");
-    lineObj.SipSession.data.callTimer = window.setInterval(function(){
-        var now = moment.utc();
-        var duration = moment.duration(now.diff(startTime)); 
-        var timeStr = formatShortDuration(duration.asSeconds());
-        $("#line-" + lineObj.LineNumber + "-timer").html(timeStr);
-        $("#line-" + lineObj.LineNumber + "-datetime").html(timeStr);
-    }, 1000);
     lineObj.SipSession.data.VideoSourceDevice = null;
     lineObj.SipSession.data.AudioSourceDevice = getAudioSrcID();
     lineObj.SipSession.data.AudioOutputDevice = getAudioOutputID();
@@ -7744,6 +7769,14 @@ function QuickFindBuddy(obj, lineNum){
 
 // Call Transfer
 // =============
+function handleEndButton(lineNum){
+    var isTransferMode = $("#line-"+ lineNum +"-btn-End").attr('data-transfer-mode') === 'true';
+    if(isTransferMode){
+        unholdSession(lineNum);
+    } else {
+        endSession(lineNum);
+    }
+}
 function StartTransferSession(lineNum){
     if($("#line-"+ lineNum +"-btn-CancelConference").is(":visible")){
         CancelConference(lineNum);
@@ -7752,6 +7785,7 @@ function StartTransferSession(lineNum){
 
     $("#line-"+ lineNum +"-btn-Transfer").hide();
     $("#line-"+ lineNum +"-btn-CancelTransfer").show();
+    $("#line-"+ lineNum +"-btn-End").attr('data-transfer-mode', 'true');
 
     holdSession(lineNum);
     $("#line-"+ lineNum +"-txt-FindTransferBuddy").val("");
@@ -7763,17 +7797,15 @@ function StartTransferSession(lineNum){
     RestoreCallControls(lineNum)
 
     $("#line-"+ lineNum +"-btn-blind-transfer").hide();
-    $("#line-"+ lineNum +"-btn-attended-transfer").show();
     $("#line-"+ lineNum +"-btn-complete-transfer").hide();
     $("#line-"+ lineNum +"-btn-cancel-transfer").hide();
-
-    $("#line-"+ lineNum +"-btn-complete-attended-transfer").hide();
-    $("#line-"+ lineNum +"-btn-cancel-attended-transfer").hide();
-    $("#line-"+ lineNum +"-btn-terminate-attended-transfer").hide();
 
     $("#line-"+ lineNum +"-transfer-status").hide();
 
     $("#line-"+ lineNum +"-Transfer").show();
+    
+    // Focus sur le champ de saisie des numéros
+    $("#line-"+ lineNum +"-txt-FindTransferBuddy").focus();
 
     updateLineScroll(lineNum);
 }
@@ -7799,6 +7831,14 @@ function CancelTransferSession(lineNum){
 
     $("#line-"+ lineNum +"-btn-Transfer").show();
     $("#line-"+ lineNum +"-btn-CancelTransfer").hide();
+    
+    // Restaurer les attributs onclick originaux
+    $("#line-"+ lineNum +"-btn-CancelTransfer").attr('onclick', "BlindTransfer('"+ lineNum +"')").off('click');
+    $("#line-"+ lineNum +"-btn-End").attr('onclick', "handleEndButton('"+ lineNum +"')").off('click').on('click', function() {
+        handleEndButton(lineNum);
+    });
+    
+    $("#line-"+ lineNum +"-btn-End").attr('data-transfer-mode', 'false');
 
     unholdSession(lineNum);
     $("#line-"+ lineNum +"-Transfer").hide();
@@ -7934,11 +7974,6 @@ function AttendedTransfer(lineNum){
 
     $("#line-"+ lineNum +"-txt-FindTransferBuddy").parent().hide();
     $("#line-"+ lineNum +"-btn-blind-transfer").hide();
-    $("#line-"+ lineNum +"-btn-attended-transfer").hide();
-
-    $("#line-"+ lineNum +"-btn-complete-attended-transfer").hide();
-    $("#line-"+ lineNum +"-btn-cancel-attended-transfer").hide();
-    $("#line-"+ lineNum +"-btn-terminate-attended-transfer").hide();
 
 
     var newCallStatus = $("#line-"+ lineNum +"-transfer-status");
@@ -8018,13 +8053,8 @@ function AttendedTransfer(lineNum){
             session.data.transfer[transferId].dispositionTime = utcDateNow();
 
             $("#line-"+ lineNum +"-txt-FindTransferBuddy").parent().show();
-            $("#line-"+ lineNum +"-btn-attended-transfer").show();
     
-            $("#line-"+ lineNum +"-btn-complete-attended-transfer").hide();
-            $("#line-"+ lineNum +"-btn-cancel-attended-transfer").hide();
-            $("#line-"+ lineNum +"-btn-terminate-attended-transfer").hide();
-    
-            $("#line-"+ lineNum +"-msg").html(lang.attended_transfer_call_terminated);
+$("#line-"+ lineNum +"-msg").html(lang.attended_transfer_call_terminated);
     
             updateLineScroll(lineNum);
     
@@ -8087,25 +8117,6 @@ function AttendedTransfer(lineNum){
 
                 $("#line-" + lineNum + "-msg").html(lang.attended_transfer_call_started);
 
-                var CancelAttendedTransferBtn = $("#line-"+ lineNum +"-btn-cancel-attended-transfer");
-                CancelAttendedTransferBtn.off('click');
-                CancelAttendedTransferBtn.on('click', function(){
-                    newSession.cancel().catch(function(error){
-                        console.warn("Failed to CANCEL", error);
-                    });
-                    newCallStatus.html(lang.call_cancelled);
-                    console.log("New call session canceled");
-        
-                    session.data.transfer[transferId].accept.complete = false;
-                    session.data.transfer[transferId].accept.disposition = "cancel";
-                    session.data.transfer[transferId].accept.eventTime = utcDateNow();
-        
-                    $("#line-" + lineNum + "-msg").html(lang.attended_transfer_call_cancelled);
-        
-                    updateLineScroll(lineNum);
-                });
-                CancelAttendedTransferBtn.show();
-        
                 updateLineScroll(lineNum);
             },
             onRedirect:function(sip){
@@ -8113,93 +8124,27 @@ function AttendedTransfer(lineNum){
             },
             onAccept:function(sip){
                 newCallStatus.html(lang.call_in_progress);
-                $("#line-"+ lineNum +"-btn-cancel-attended-transfer").hide();
                 session.data.transfer[transferId].disposition = "accepted";
                 session.data.transfer[transferId].dispositionTime = utcDateNow();
+                
+                // Ne pas afficher de message quand le correspondant décroche
+                // Les boutons restent visibles dans la barre d'outils
+                
+                // Créer une fonction commune pour les deux boutons
+                var completeTransferHandler = function() {
+                    CompleteAttendedTransfer(lineNum, session, newSession, transferId);
+                };
+                
+                // Mettre à jour le bouton de transfert
+                var cancelTransferBtn = $("#line-"+ lineNum +"-btn-CancelTransfer");
+                cancelTransferBtn.removeAttr('onclick').off('click').on('click', completeTransferHandler);
+                cancelTransferBtn.prop('title', lang.attended_transfer_complete);
+                
+                // Mettre à jour le bouton de raccroché avec le même handler
+                var endBtn = $("#line-"+ lineNum +"-btn-End");
+                endBtn.removeAttr('onclick').off('click').on('click', completeTransferHandler);
+                endBtn.prop('title', lang.attended_transfer_complete);
         
-                var CompleteTransferBtn = $("#line-"+ lineNum +"-btn-complete-attended-transfer");
-                CompleteTransferBtn.off('click');
-                CompleteTransferBtn.on('click', function(){
-                    var transferOptions  = { 
-                        requestDelegate: {
-                            onAccept: function(sip){
-                                console.log("Attended transfer Accepted");
-
-                                session.data.terminateby = "us";
-                                session.data.reasonCode = 202;
-                                session.data.reasonText = "Attended Transfer";
-
-                                session.data.transfer[transferId].accept.complete = true;
-                                session.data.transfer[transferId].accept.disposition = sip.message.reasonPhrase;
-                                session.data.transfer[transferId].accept.eventTime = utcDateNow();
-
-                                $("#line-" + lineNum + "-msg").html(lang.attended_transfer_complete_accepted);
-
-                                updateLineScroll(lineNum);
-
-                                // We must end this session manually
-                                session.bye().catch(function(error){
-                                    console.warn("Could not BYE after blind transfer:", error);
-                                });
-
-                                teardownSession(lineObj);
-                            },
-                            onReject: function(sip){
-                                console.warn("Attended transfer rejected:", sip);
-
-                                session.data.transfer[transferId].accept.complete = false;
-                                session.data.transfer[transferId].accept.disposition = sip.message.reasonPhrase;
-                                session.data.transfer[transferId].accept.eventTime = utcDateNow();
-
-                                $("#line-" + lineNum + "-msg").html("Attended Transfer Failed!");
-
-                                updateLineScroll(lineNum);
-                            }
-                        }
-                    }
-        
-                    // Send REFER
-                    session.refer(newSession, transferOptions).catch(function(error){
-                        console.warn("Failed to REFER", error);
-                    });
-        
-                    newCallStatus.html(lang.attended_transfer_complete);
-
-                    updateLineScroll(lineNum);
-                });
-                CompleteTransferBtn.show();
-        
-                updateLineScroll(lineNum);
-        
-                var TerminateAttendedTransferBtn = $("#line-"+ lineNum +"-btn-terminate-attended-transfer");
-                TerminateAttendedTransferBtn.off('click');
-                TerminateAttendedTransferBtn.on('click', function(){
-                    newSession.bye().catch(function(error){
-                        console.warn("Failed to BYE", error);
-                    });
-                    newCallStatus.html(lang.call_ended);
-                    console.log("New call session end");
-        
-                    session.data.transfer[transferId].accept.complete = false;
-                    session.data.transfer[transferId].accept.disposition = "bye";
-                    session.data.transfer[transferId].accept.eventTime = utcDateNow();
-        
-                    $("#line-"+ lineNum +"-btn-complete-attended-transfer").hide();
-                    $("#line-"+ lineNum +"-btn-cancel-attended-transfer").hide();
-                    $("#line-"+ lineNum +"-btn-terminate-attended-transfer").hide();
-
-                    $("#line-" + lineNum + "-msg").html(lang.attended_transfer_call_ended);
-
-                    updateLineScroll(lineNum);
-
-                    window.setTimeout(function(){
-                        newCallStatus.hide();
-                        CancelTransferSession(lineNum);
-                        updateLineScroll(lineNum);
-                    }, 1000);
-                });
-                TerminateAttendedTransferBtn.show();
-
                 updateLineScroll(lineNum);
             },
             onReject:function(sip){
@@ -8209,13 +8154,8 @@ function AttendedTransfer(lineNum){
                 session.data.transfer[transferId].dispositionTime = utcDateNow();
         
                 $("#line-"+ lineNum +"-txt-FindTransferBuddy").parent().show();
-                $("#line-"+ lineNum +"-btn-attended-transfer").show();
         
-                $("#line-"+ lineNum +"-btn-complete-attended-transfer").hide();
-                $("#line-"+ lineNum +"-btn-cancel-attended-transfer").hide();
-                $("#line-"+ lineNum +"-btn-terminate-attended-transfer").hide();
-        
-                $("#line-"+ lineNum +"-msg").html(lang.attended_transfer_call_rejected);
+$("#line-"+ lineNum +"-msg").html(lang.attended_transfer_call_rejected);
         
                 updateLineScroll(lineNum);
         
@@ -8322,6 +8262,106 @@ function handleSidePanelNumberClick(number){
     return false;
 }
 window.handleSidePanelNumberClick = handleSidePanelNumberClick;
+
+function CompleteAttendedTransfer(lineNum, session, newSession, transferId){
+    var lineObj = FindLineByNumber(lineNum);
+    if(lineObj == null || lineObj.SipSession == null){
+        console.warn("Null line or session");
+        return;
+    }
+
+    var transferOptions = { 
+        requestDelegate: {
+            onAccept: function(sip){
+                console.log("Attended transfer Accepted");
+
+                session.data.terminateby = "us";
+                session.data.reasonCode = 202;
+                session.data.reasonText = "Attended Transfer";
+
+                session.data.transfer[transferId].accept.complete = true;
+                session.data.transfer[transferId].accept.disposition = sip.message.reasonPhrase;
+                session.data.transfer[transferId].accept.eventTime = utcDateNow();
+
+                $("#line-" + lineNum + "-msg").html(lang.attended_transfer_complete_accepted);
+
+                updateLineScroll(lineNum);
+
+                // We must end this session manually
+                session.bye().catch(function(error){
+                    console.warn("Could not BYE after attended transfer:", error);
+                });
+
+                teardownSession(lineObj);
+            },
+            onReject: function(sip){
+                console.warn("Attended transfer rejected:", sip);
+
+                session.data.transfer[transferId].accept.complete = false;
+                session.data.transfer[transferId].accept.disposition = sip.message.reasonPhrase;
+                session.data.transfer[transferId].accept.eventTime = utcDateNow();
+
+                $("#line-" + lineNum + "-msg").html("Attended Transfer Failed!");
+
+                updateLineScroll(lineNum);
+            }
+        }
+    }
+
+    // Send REFER
+    session.refer(newSession, transferOptions).catch(function(error){
+        console.warn("Failed to REFER", error);
+    });
+
+    $("#line-" + lineNum + "-msg").html(lang.attended_transfer_complete);
+
+    updateLineScroll(lineNum);
+}
+
+function TerminateAttendedCall(lineNum, newSession){
+    newSession.bye().catch(function(error){
+        console.warn("Failed to BYE", error);
+    });
+
+    var lineObj = FindLineByNumber(lineNum);
+    if(lineObj == null || lineObj.SipSession == null){
+        console.warn("Null line or session");
+        return;
+    }
+    var session = lineObj.SipSession;
+
+    // Hide transfer buttons and reset transfer mode
+    $("#line-"+ lineNum +"-btn-CancelTransfer").hide();
+    $("#line-"+ lineNum +"-btn-End").data("transfer-mode", "false").prop('onclick', null).off('click').on('click', function() {
+        handleEndButton(lineNum);
+    });
+    
+    // Restore original transfer buttons
+    $("#line-"+ lineNum +"-btn-Transfer").show();
+    
+    // Resume the original session
+    session.sessionDescriptionHandler.peerConnection.getAudioTracks().forEach(function(track){
+        track.enabled = true;
+    });
+
+    session.data.transfer[session.data.transfer.length-1].accept.complete = false;
+    session.data.transfer[session.data.transfer.length-1].accept.disposition = "bye";
+    session.data.transfer[session.data.transfer.length-1].accept.eventTime = utcDateNow();
+
+    $("#line-"+ lineNum + "-Transfer").hide();
+    $("#line-"+ lineNum +"-txt-FindTransferBuddy").parent().show();
+    
+    var newCallStatus = $("#line-"+ lineNum +"-transfer-status");
+    newCallStatus.html(lang.call_ended);
+    
+    updateLineScroll(lineNum);
+
+    window.setTimeout(function(){
+        newCallStatus.hide();
+        updateLineScroll(lineNum);
+    }, 1000);
+}
+
 function appendConferenceDial(lineNum, val){
     var $input = $("#line-"+ lineNum +"-txt-FindConferenceBuddy");
     if(!$input.length) return;
@@ -8819,6 +8859,38 @@ function unholdSession(lineNum) {
         return;
     }
     console.log("Taking call off hold:", lineNum);
+    
+    // Arrêter le transfert en cours s'il existe
+    if(session.data.childsession){
+        console.log("Transfer in progress, terminating before unhold - childSession state:", session.data.childsession.state);
+        try {
+            session.data.childsession.bye().catch(function(error){
+                console.warn("Error on BYE:", error);
+            });
+            session.data.childsession.dispose().then(function(){
+                console.log("Child session disposed successfully");
+                session.data.childsession = null;
+            }).catch(function(error){
+                console.warn("Error terminating transfer session:", error);
+                session.data.childsession = null;
+            });
+        } catch(e) {
+            console.warn("Error in transfer termination:", e);
+            session.data.childsession = null;
+        }
+    }
+    
+    // Toujours restaurer l'UI du transfert quand on reprend l'appel
+    console.log("Restoring transfer UI elements");
+    $("#line-"+ lineNum +"-session-avatar").css("width", "");
+    $("#line-"+ lineNum +"-session-avatar").css("height", "");
+    $("#line-"+ lineNum +"-btn-Transfer").show();
+    $("#line-"+ lineNum +"-btn-CancelTransfer").hide();
+    $("#line-"+ lineNum +"-btn-End").attr('data-transfer-mode', 'false');
+    $("#line-"+ lineNum +"-Transfer").hide();
+    $("#line-"+ lineNum +"-transfer-dialpad").hide();
+    $("#line-"+ lineNum +"-transfer-status").hide();
+    
     session.isOnHold = false;
 
     var sessionDescriptionHandlerOptions = session.sessionDescriptionHandlerOptionsReInvite;
@@ -10181,6 +10253,13 @@ function DialByLine(type, buddy, numToDial, CallerID, extraHeaders){
     newLineNumber = newLineNumber + 1;
     var lineObj = new Line(newLineNumber, buddyObj.CallerIDName, numDial, buddyObj);
     Lines.push(lineObj);
+
+    // Store call info for notification when minimized
+    if (typeof window.setCelyavoxCallInfo === 'function') {
+        window.setCelyavoxCallInfo({ name: buddyObj.CallerIDName, number: numDial });
+        console.log('[DialByLine] Call info stored:', { name: buddyObj.CallerIDName, number: numDial });
+    }
+
     AddLineHtml(lineObj, "outbound");
     SelectLine(newLineNumber);
     UpdateBuddyList();
@@ -10372,10 +10451,6 @@ function AddLineHtml(lineObj, direction){
     html += "</tbody></table>";
     html += "<div style=\"margin-top:4px;\"><button class=roundButtons onclick=\"appendTransferDial('"+ lineObj.LineNumber +"','del')\">⌫</button></div>";
     html += "</div>";
-    html += " <button id=\"line-"+ lineObj.LineNumber +"-btn-attended-transfer\" onclick=\"AttendedTransfer('"+ lineObj.LineNumber +"')\"><i class=\"fa fa-reply-all\" style=\"transform: rotateY(180deg)\"></i> "+ lang.attended_transfer +"</button>";
-    html += " <button id=\"line-"+ lineObj.LineNumber +"-btn-complete-attended-transfer\" style=\"display:none\"><i class=\"fa fa-reply-all\" style=\"transform: rotateY(180deg)\"></i> "+ lang.complete_transfer +"</button>";
-    html += " <button id=\"line-"+ lineObj.LineNumber +"-btn-cancel-attended-transfer\" style=\"display:none\"><i class=\"fa fa-phone\" style=\"transform: rotate(135deg);\"></i> "+ lang.cancel_transfer +"</button>";
-    html += " <button id=\"line-"+ lineObj.LineNumber +"-btn-terminate-attended-transfer\" style=\"display:none\"><i class=\"fa fa-phone\" style=\"transform: rotate(135deg);\"></i> "+ lang.end_transfer_call +"</button>";
     html += "</div>";
     html += "<div id=\"line-"+ lineObj.LineNumber +"-transfer-status\" class=callStatus style=\"margin-top:10px; display:none\">...</div>";
     html += "<audio id=\"line-"+ lineObj.LineNumber +"-transfer-remoteAudio\" style=\"display:none\"></audio>";
@@ -10461,7 +10536,7 @@ function AddLineHtml(lineObj, direction){
     // Transfer (Audio Only) - Moved to first row
     if(EnableTransfer){
         html += "<button id=\"line-"+ lineObj.LineNumber +"-btn-Transfer\" onclick=\"StartTransferSession('"+ lineObj.LineNumber +"')\" class=\"roundButtons dialButtons inCallButtons\" title=\""+ lang.transfer_call +"\"><i class=\"fa fa-reply\" style=\"transform: rotateY(180deg)\"></i></button>";
-        html += "<button id=\"line-"+ lineObj.LineNumber+"-btn-CancelTransfer\" onclick=\"CancelTransferSession('"+ lineObj.LineNumber +"')\" class=\"roundButtons dialButtons inCallButtons\" title=\""+ lang.cancel_transfer +"\" style=\"color: red; display:none\"><i class=\"fa fa-reply\" style=\"transform: rotateY(180deg)\"></i></button>";
+        html += "<button id=\"line-"+ lineObj.LineNumber+"-btn-CancelTransfer\" onclick=\"BlindTransfer('"+ lineObj.LineNumber +"')\" class=\"roundButtons dialButtons inCallButtons\" title=\""+ lang.blind_transfer +"\" style=\"color: red; display:none\"><i class=\"fa fa-reply\" style=\"transform: rotateY(180deg)\"></i></button>";
     }
     // Conference - Moved to first row
     if(EnableConference){
@@ -10473,7 +10548,7 @@ function AddLineHtml(lineObj, direction){
     html += "<button id=\"line-"+ lineObj.LineNumber +"-btn-expand\" onclick=\"ExpandVideoArea('"+ lineObj.LineNumber +"')\" class=\"roundButtons dialButtons inCallButtons\"><i class=\"fa fa-expand\"></i></button>";
     html += "<button id=\"line-"+ lineObj.LineNumber +"-btn-restore\" onclick=\"RestoreVideoArea('"+ lineObj.LineNumber +"')\" class=\"roundButtons dialButtons inCallButtons\" style=\"display:none\"><i class=\"fa fa-compress\"></i></button>";
     // End Call
-    html += "<button id=\"line-"+ lineObj.LineNumber +"-btn-End\" onclick=\"endSession('"+ lineObj.LineNumber +"')\" class=\"roundButtons dialButtons inCallButtons hangupButton\" title=\""+ lang.end_call +"\"><i class=\"fa fa-phone\" style=\"transform: rotate(135deg);\"></i></button>";
+    html += "<button id=\"line-"+ lineObj.LineNumber +"-btn-End\" onclick=\"handleEndButton('"+ lineObj.LineNumber +"')\" class=\"roundButtons dialButtons inCallButtons hangupButton\" title=\""+ lang.end_call +"\"><i class=\"fa fa-phone\" style=\"transform: rotate(135deg);\"></i></button>";
     html += "</div>";
     // Row two (Hidden By Default)
     html += "<div id=\"line-"+ lineObj.LineNumber +"-btn-more\" style=\"display:none\">";
