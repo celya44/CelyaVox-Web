@@ -1856,6 +1856,48 @@
                 })
                 .then(function(js){
                     var state = extractForwardState(js || {});
+                    
+                    // Récupérer les flags UI courants (relit depuis celyavoxConfig)
+                    var uiFlags = typeof window.getUIFlags === 'function' ? window.getUIFlags() : { disableDoNotDisturb: false, disableCallForward: false };
+                    
+                    // Construire les blocs conditionnellement basé sur les paramètres de désactivation
+                    // NOTE: On construit TOUJOURS les blocs (pas de condition ternaire), mais on les ajoute une classe pour les masquer si nécessaire
+                    var dndBlockStyle = (uiFlags.disableDoNotDisturb) ? 'display:none;' : '';
+                    var dndBlock = '<div id="dndBlockContainer" class="dndBlockContainer" style="' + dndBlockStyle + '">'
+                        + '<div class="sp-card" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;">'
+                        +   '<div>'
+                        +       '<div style="font-weight:500;">Ne pas déranger (DND)</div>'
+                        +       '<div class="sp-muted" style="font-size:12px;">Empêche la sonnerie et les appels entrants.</div>'
+                        +   '</div>'
+                        +   '<label class="toggle-switch" aria-label="DND" role="switch">'
+                        +       '<input id="toggleDnd" type="checkbox" '+ (state.dnd ? 'checked' : '') +' />'
+                        +       '<span class="slider" aria-hidden="true"></span>'
+                        +       '<span class="toggle-label">Actif</span>'
+                        +   '</label>'
+                        + '</div>'
+                        + '</div>';
+                    
+                    var cfuBlockStyle = (uiFlags.disableCallForward) ? 'display:none;' : '';
+                    var cfuBlock = '<div id="cfuBlockContainer" class="cfuBlockContainer" style="' + cfuBlockStyle + '">'
+                        + '<div class="sp-card">'
+                        +   '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;">'
+                        +       '<div>'
+                        +           '<div style="font-weight:500;">Renvoi d\'appel (CFU)</div>'
+                        +           '<div class="sp-muted" style="font-size:12px;">Transfère tous les appels vers un numéro.</div>'
+                        +       '</div>'
+                        +       '<label class="toggle-switch" aria-label="CFU" role="switch">'
+                        +           '<input id="toggleCf" type="checkbox" '+ (state.cfEnabled ? 'checked' : '') +' />'
+                        +           '<span class="slider" aria-hidden="true"></span>'
+                        +           '<span class="toggle-label">Actif</span>'
+                        +       '</label>'
+                        +   '</div>'
+                        +   '<div>'
+                        +       '<label for="cfNumber" class="sp-label">Numéro de renvoi</label>'
+                        +       '<input id="cfNumber" type="text" value="'+ escHtml(state.cfNumber || '') +'" class="sp-input" />'
+                        +   '</div>'
+                        + '</div>'
+                        + '</div>';
+                    
                     var html = ''
                         + '<div style="padding:12px;">'
                         +   '<div style="margin-bottom:12px;">'
@@ -1864,38 +1906,34 @@
                         +       '</button>'
                         +   '</div>'
                         +   '<div class="sp-section-title" style="margin-bottom:12px;">Paramètres de ligne</div>'
-                        +   '<div class="sp-card" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;">'
-                        +       '<div>'
-                        +           '<div style="font-weight:500;">Ne pas déranger (DND)</div>'
-                        +           '<div class="sp-muted" style="font-size:12px;">Empêche la sonnerie et les appels entrants.</div>'
-                        +       '</div>'
-                        +       '<label class="toggle-switch" aria-label="DND" role="switch">'
-                        +           '<input id="toggleDnd" type="checkbox" '+ (state.dnd ? 'checked' : '') +' />'
-                        +           '<span class="slider" aria-hidden="true"></span>'
-                        +           '<span class="toggle-label">Actif</span>'
-                        +       '</label>'
-                        +   '</div>'
-                        +   '<div class="sp-card">'
-                        +       '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;">'
-                        +           '<div>'
-                        +               '<div style="font-weight:500;">Renvoi d\'appel (CFU)</div>'
-                        +               '<div class="sp-muted" style="font-size:12px;">Transfère tous les appels vers un numéro.</div>'
-                        +           '</div>'
-                        +           '<label class="toggle-switch" aria-label="CFU" role="switch">'
-                        +               '<input id="toggleCf" type="checkbox" '+ (state.cfEnabled ? 'checked' : '') +' />'
-                        +               '<span class="slider" aria-hidden="true"></span>'
-                        +               '<span class="toggle-label">Actif</span>'
-                        +           '</label>'
-                        +       '</div>'
-                        +       '<div>'
-                        +           '<label for="cfNumber" class="sp-label">Numéro de renvoi</label>'
-                        +           '<input id="cfNumber" type="text" value="'+ escHtml(state.cfNumber || '') +'" class="sp-input" />'
-                        +       '</div>'
-                        +   '</div>'
+                        +   dndBlock
+                        +   cfuBlock
                         +   '<div id="advancedMsg" class="sp-muted" style="margin-top:6px; font-size:12px;"></div>'
                         + '</div>';
 
                     contentEl.innerHTML = html;
+                    
+                    // LOGS DE DEBUG
+                    console.log(`
+📋 BLOCS ADVANCED FUNCTIONS CRÉÉS:
+  disableDoNotDisturb: ${uiFlags.disableDoNotDisturb}
+  disableCallForward: ${uiFlags.disableCallForward}
+  dndBlock HTML length: ${dndBlock.length}
+  cfuBlock HTML length: ${cfuBlock.length}
+  #dndBlockContainer exists: ${document.getElementById('dndBlockContainer') !== null}
+  #cfuBlockContainer exists: ${document.getElementById('cfuBlockContainer') !== null}
+  Display DND: ${document.getElementById('dndBlockContainer')?.style.display}
+  Display CFU: ${document.getElementById('cfuBlockContainer')?.style.display}
+`);
+                    
+                    // Appliquer les UI flags maintenant que les blocs existent
+                    if (typeof window.applyUIFlagsToUI === 'function') {
+                      console.log(`  Appel à applyUIFlagsToUI() après création des blocs...`);
+                      setTimeout(() => {
+                        window.applyUIFlagsToUI();
+                      }, 50);
+                    }
+                    
                     try{
                         // Accessibilité: synchroniser aria-checked sur les switches
                         var dndCb = document.getElementById('toggleDnd');
@@ -3590,6 +3628,7 @@
                 } else {
                     if(b.id === 'nav-contacts'){
                         // Affiche une zone dédiée pour la recherche/contact: divFindBuddy avec un champ txtFindBuddy
+                        var personalContactsDisplay = (typeof DisableBuddies !== 'undefined' && DisableBuddies) ? 'display:none;' : '';
                         openPanel(
                             b.title,
                             "<div id='divFindBuddyContacts' style='padding:12px; overflow-x:hidden;'>"
@@ -3598,11 +3637,11 @@
                             + "<div style='display:flex; align-items:center; justify-content:space-between; margin:10px 0 8px 0;'>"
                             + "<div id='ldapResultsContacts' style='margin-top:6px; min-height:24px;'></div>"
                             + "</div>"
-                            + "<div style='display:flex; align-items:center; justify-content:space-between; margin-top:6px;'>"
+                            + "<div style='display:flex; align-items:center; justify-content:space-between; margin-top:6px;" + personalContactsDisplay + "'>"
                             + "<div class='sp-section-title'>Contacts personnels</div>"
-                            + "<button type='button' class='roundButtons' title='Ajouter un contact' onclick=\"try{ AddSomeoneWindow(''); closePanel(); }catch(e){ console.warn(e); }\"><i class='fa fa-user-plus'></i></button>"
+                            + "<button type='button' class='roundButtons' id='BtnAddSomeonePanel' title='Ajouter un contact' onclick=\"try{ AddSomeoneWindow(''); closePanel(); }catch(e){ console.warn(e); }\"><i class='fa fa-user-plus'></i></button>"
                             + "</div>"
-                            + "<div id='personalContactsList' style='margin-top:10px;'></div>"
+                            + "<div id='personalContactsList' class='personalContactsSection' style='margin-top:10px;" + personalContactsDisplay + "'></div>"
                             + "</div>",
                             'contacts'
                         );

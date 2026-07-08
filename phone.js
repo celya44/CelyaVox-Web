@@ -143,7 +143,197 @@ let BuddyShowExtenNum = (getDbItem("BuddyShowExtenNum", "0") == "1");        // 
 // Permission Settings
 let EnableTextMessaging = (getDbItem("EnableTextMessaging", "1") == "1");               // Enables the Text Messaging
 let DisableFreeDial = (getDbItem("DisableFreeDial", "0") == "1");                       // Removes the Dial icon in the profile area, users will need to add buddies in order to dial.
-let DisableBuddies = (getDbItem("DisableBuddies", "0") == "1");                         // Removes the Add Someone menu item and icon from the profile area. Buddies will still be created automatically. Please also use MaxBuddies or MaxBuddyAge
+let DisableBuddies = (window.celyavoxConfig?.ui?.disableBuddies ?? (getDbItem("DisableBuddies", "0") == "1"));                         // Removes the Add Someone menu item and icon from the profile area. Buddies will still be created automatically. Please also use MaxBuddies or MaxBuddyAge
+let DisableDoNotDisturb = (window.celyavoxConfig?.ui?.disableDoNotDisturb ?? (getDbItem("DisableDoNotDisturb", "0") == "1"));               // Hides the Do Not Disturb (DND) feature block from Advanced Functions menu
+let DisableCallForward = (window.celyavoxConfig?.ui?.disableCallForward ?? (getDbItem("DisableCallForward", "0") == "1"));                 // Hides the Call Forward (CFU) feature block from Advanced Functions menu
+let DisableGUISipAccount = (window.celyavoxConfig?.ui?.disableGUISipAccount ?? (getDbItem("DisableGUISipAccount", "0") == "1"));              // Hides the SIP Account configuration block from Settings
+
+console.log(`
+📋 UI FLAGS APPLIQUÉS:
+  - DisableBuddies: ${DisableBuddies}
+  - DisableDoNotDisturb: ${DisableDoNotDisturb}
+  - DisableCallForward: ${DisableCallForward}
+  - DisableGUISipAccount: ${DisableGUISipAccount}
+`);
+
+// Écouter les mises à jour de config via le preload
+if (typeof window.onConfigUpdate === 'function') {
+  window.onConfigUpdate((config) => {
+    console.log(`
+🔄 MISE À JOUR CONFIG REÇUE:`);
+    console.log(`  config.ui:`, config.ui);
+    console.log(`  Mise à jour des UI FLAGS...`);
+    
+    DisableBuddies = config.ui?.disableBuddies ?? DisableBuddies;
+    DisableDoNotDisturb = config.ui?.disableDoNotDisturb ?? DisableDoNotDisturb;
+    DisableCallForward = config.ui?.disableCallForward ?? DisableCallForward;
+    DisableGUISipAccount = config.ui?.disableGUISipAccount ?? DisableGUISipAccount;
+    
+    console.log(`
+✅ UI FLAGS MIS À JOUR:
+  - DisableBuddies: ${DisableBuddies}
+  - DisableDoNotDisturb: ${DisableDoNotDisturb}
+  - DisableCallForward: ${DisableCallForward}
+  - DisableGUISipAccount: ${DisableGUISipAccount}
+`);
+    // Appliquer les changements à l'UI
+    console.log(`  Appel applyUIFlagsToUI() après 100ms...`);
+    if (typeof window.applyUIFlagsToUI === 'function') {
+      setTimeout(() => {
+        console.log(`  ⏰ Délai de 100ms écoulé, application des flags...`);
+        window.applyUIFlagsToUI();
+      }, 100);
+    } else {
+      console.error(`  ❌ applyUIFlagsToUI n'existe pas!`);
+    }
+  });
+} else {
+  console.error(`❌ window.onConfigUpdate n'existe pas!`);
+}
+
+// Fonction pour appliquer les UI flags à l'interface
+window.applyUIFlagsToUI = function() {
+  const timestamp = new Date().toLocaleTimeString();
+  console.log(`
+🎨 APPLICATION DES UI FLAGS À L'INTERFACE [${timestamp}]
+`);
+  console.log(`  celyavoxConfig.ui:`, window.celyavoxConfig?.ui);
+  console.log(`  Variables globales - DisableBuddies: ${DisableBuddies}, DisableDoNotDisturb: ${DisableDoNotDisturb}, DisableCallForward: ${DisableCallForward}, DisableGUISipAccount: ${DisableGUISipAccount}`);
+  console.log(`  DOM dndBlockContainer: ${$("#dndBlockContainer").length}`);
+  console.log(`  DOM cfuBlockContainer: ${$("#cfuBlockContainer").length}`);
+  
+  // ==================== DISABLEBUDDIES ====================
+  const uiFlagsDisableBuddies = window.celyavoxConfig?.ui?.disableBuddies ?? DisableBuddies ?? false;
+  console.log(`  uiFlagsDisableBuddies (valeur finale): ${uiFlagsDisableBuddies}`);
+  
+  // Masquer le bouton principal "Add Someone"
+  const btnAddSomeone = $("#BtnAddSomeone");
+  console.log(`  #BtnAddSomeone trouvé: ${btnAddSomeone.length > 0}`);
+  
+  if (uiFlagsDisableBuddies) {
+    btnAddSomeone.hide();
+    console.log(`  ✅ #BtnAddSomeone CACHÉ`);
+    
+    // Masquer la section "Contacts personnels" dans le sidepanel si elle existe
+    const sidepanelDivs = $("div").filter(function() {
+      return $(this).text().includes('Contacts personnels');
+    });
+    console.log(`  Divs "Contacts personnels" trouvés: ${sidepanelDivs.length}`);
+    
+    sidepanelDivs.each(function(idx, el) {
+      const $el = $(el);
+      if ($el.css('display') !== 'flex' && $el.css('display') !== 'block') {
+        return;
+      }
+      $el.hide();
+      console.log(`    ✅ Div ${idx} caché`);
+    });
+    
+    // Masquer aussi la section de liste des contacts
+    const personalContactsSection = $("#personalContactsList");
+    if (personalContactsSection.length > 0) {
+      personalContactsSection.hide();
+      console.log(`  ✅ #personalContactsList CACHÉ`);
+    }
+  } else {
+    btnAddSomeone.show();
+    console.log(`  ✅ #BtnAddSomeone VISIBLE`);
+    
+    // Afficher la section "Contacts personnels" dans le sidepanel
+    const sidepanelDivs = $("div").filter(function() {
+      return $(this).text().includes('Contacts personnels');
+    });
+    
+    sidepanelDivs.each(function(idx, el) {
+      const $el = $(el);
+      $el.show();
+      console.log(`    ✅ Div ${idx} affiché`);
+    });
+    
+    // Afficher aussi la section de liste des contacts
+    const personalContactsSection = $("#personalContactsList");
+    if (personalContactsSection.length > 0) {
+      personalContactsSection.show();
+      console.log(`  ✅ #personalContactsList VISIBLE`);
+    }
+  }
+  
+  // ==================== DISABLEDONOTDISTURB ====================
+  const uiFlagsDisableDoNotDisturb = window.celyavoxConfig?.ui?.disableDoNotDisturb ?? DisableDoNotDisturb ?? false;
+  console.log(`  uiFlagsDisableDoNotDisturb (valeur finale): ${uiFlagsDisableDoNotDisturb}`);
+  
+  const dndBlockContainer = $("#dndBlockContainer");
+  console.log(`  #dndBlockContainer trouvé: ${dndBlockContainer.length > 0}`);
+  console.log(`  Tous les divs avec id contenant 'dnd':`, $("[id*='dnd']").length);
+  console.log(`  Tous les divs avec class contenant 'dnd':`, $("[class*='dnd']").length);
+  
+  if (dndBlockContainer.length > 0) {
+    console.log(`    #dndBlockContainer avant: display=${dndBlockContainer.css('display')}`);
+  }
+  
+  if (uiFlagsDisableDoNotDisturb) {
+    if (dndBlockContainer.length > 0) {
+      dndBlockContainer.hide();
+      console.log(`  ✅ Bloc DND CACHÉ (display maintenant: ${dndBlockContainer.css('display')})`);
+    } else {
+      console.warn(`  ⚠️ #dndBlockContainer non trouvé! Recherche par contenu...`);
+      const dndByText = $("div").filter(function() {
+        return $(this).text().includes('Ne pas déranger');
+      });
+      console.log(`    Divs "Ne pas déranger" trouvés: ${dndByText.length}`);
+      dndByText.each(function(idx, el) {
+        const $el = $(el);
+        if ($el.closest(".sp-card").length > 0) {
+          $el.closest(".sp-card").hide();
+          console.log(`    ✅ Div ${idx} sp-card caché`);
+        }
+      });
+    }
+  } else {
+    if (dndBlockContainer.length > 0) {
+      dndBlockContainer.show();
+      console.log(`  ✅ Bloc DND VISIBLE (display maintenant: ${dndBlockContainer.css('display')})`);
+    }
+  }
+  
+  // ==================== DISABLECALLFORWARD ====================
+  const uiFlagsDisableCallForward = window.celyavoxConfig?.ui?.disableCallForward ?? DisableCallForward ?? false;
+  console.log(`  uiFlagsDisableCallForward (valeur finale): ${uiFlagsDisableCallForward}`);
+  
+  const cfuBlockContainer = $("#cfuBlockContainer");
+  console.log(`  #cfuBlockContainer trouvé: ${cfuBlockContainer.length > 0}`);
+  console.log(`  Tous les divs avec id contenant 'cfu':`, $("[id*='cfu']").length);
+  console.log(`  Tous les divs avec id contenant 'Renvoi':`, $("[id*='Renvoi']").length);
+  
+  if (cfuBlockContainer.length > 0) {
+    console.log(`    #cfuBlockContainer avant: display=${cfuBlockContainer.css('display')}`);
+  }
+  
+  if (uiFlagsDisableCallForward) {
+    if (cfuBlockContainer.length > 0) {
+      cfuBlockContainer.hide();
+      console.log(`  ✅ Bloc CFU CACHÉ (display maintenant: ${cfuBlockContainer.css('display')})`);
+    } else {
+      console.warn(`  ⚠️ #cfuBlockContainer non trouvé! Recherche par contenu...`);
+      const cfuByText = $("div").filter(function() {
+        return $(this).text().includes('Renvoi d\'appel');
+      });
+      console.log(`    Divs "Renvoi d'appel" trouvés: ${cfuByText.length}`);
+      cfuByText.each(function(idx, el) {
+        const $el = $(el);
+        if ($el.closest(".sp-card").length > 0) {
+          $el.closest(".sp-card").hide();
+          console.log(`    ✅ Div ${idx} sp-card caché`);
+        }
+      });
+    }
+  } else {
+    if (cfuBlockContainer.length > 0) {
+      cfuBlockContainer.show();
+      console.log(`  ✅ Bloc CFU VISIBLE (display maintenant: ${cfuBlockContainer.css('display')})`);
+    }
+  }
+};
 let EnableTransfer = (getDbItem("EnableTransfer", "1") == "1");                         // Controls Transferring during a call
 let EnableConference = (getDbItem("EnableConference", "1") == "1");                     // Controls Conference during a call
 let AutoAnswerPolicy = getDbItem("AutoAnswerPolicy", "allow");                          // allow = user can choose | disabled = feature is disabled | enabled = feature is always on
@@ -2068,12 +2258,11 @@ function InitUi(){
     leftHTML += "<span class=settingsMenu>";
     leftHTML += "<button id=\"line-6-btn-settings\" onclick=\"ChangeSettings('6', this)\" class=\"roundButtons\" title=\"Paramètres de l'appareil\"><i class=\"fa fa-volume-up\"></i></button>";
     leftHTML += "<button id=\"ThemeToggle\" class=\"roundButtons\" type=\"button\" aria-label=\"Basculer le theme\"><i class=\"fa fa-moon-o\"></i></button>";
-/*    leftHTML += "<button class=roundButtons id=BtnAddSomeone><i class=\"fa fa-user-plus\"></i></button>";
+    leftHTML += "<button class=roundButtons id=BtnAddSomeone><i class=\"fa fa-user-plus\"></i></button>";
     if(false){
          // TODO
         leftHTML += "<button id=BtnCreateGroup><i class=\"fa fa-users\"></i><i class=\"fa fa-plus\" style=\"font-size:9px\"></i></button>";
     }
-    leftHTML += "<button class=roundButtons id=SettingsMenu><i class=\"fa fa-cogs\"></i></button>"; */
     leftHTML += "</span>";  // class=settingsMenu
 
     // Display Name
@@ -2116,8 +2305,9 @@ function InitUi(){
     phone.append(leftSection);
     phone.append(rightSection);
 
-    if(DisableBuddies == true) {
-        $("#BtnAddSomeone").hide();
+    // Appliquer les UI flags au démarrage et ensuite dynamiquement
+    if (typeof window.applyUIFlagsToUI === 'function') {
+      window.applyUIFlagsToUI();
     }
     
     // Rendre le compteur de messages vocaux cliquable pour ouvrir le sidepanel Visual Voicemail
@@ -13229,7 +13419,7 @@ function ShowMyProfile(){
     html += "<div border=0 class=UiSideField>";
 
     // SIP Account
-    if(EnableAccountSettings == true){
+    if(EnableAccountSettings == true && DisableGUISipAccount == false){
         html += "<div class=UiTextHeading onclick=\"ToggleHeading(this,'Configure_Extension_Html')\"><i class=\"fa fa-user-circle-o UiTextHeadingIcon\" style=\"background-color:#a93a3a\"></i> "+ lang.account +"</div>"
     }
     var AccountHtml =  "<div id=Configure_Extension_Html style=\"display:none\">";
@@ -13288,7 +13478,7 @@ function ShowMyProfile(){
     AccountHtml += "</div>";
 
     AccountHtml += "</div>";
-    if(EnableAccountSettings == true) html += AccountHtml;
+    if(EnableAccountSettings == true && DisableGUISipAccount == false) html += AccountHtml;
 
     // 2 Audio & Video
     html += "<div class=UiTextHeading onclick=\"ToggleHeading(this,'Audio_Video_Html')\"><i class=\"fa fa fa-video-camera UiTextHeadingIcon\" style=\"background-color:#208e3c\"></i> "+ lang.audio_video +"</div>"
