@@ -111,9 +111,48 @@
             }
         }
         
-        // Charger la configuration depuis les paramètres d'URL Teams
+        // Charger la configuration depuis les paramètres d'URL Teams ou CelyaVox
         function loadTeamsConfiguration() {
-            const urlParams = new URLSearchParams(window.location.search);
+            // Lire depuis le hash (pour SAML avec données volumineuses)
+            const urlParams = new URLSearchParams(window.location.hash.substring(1));
+            const celyavoxConfig = urlParams.get('celyavox_config');
+            
+            if (celyavoxConfig) {
+                try {
+                    // Décoder depuis base64 (format envoyé par loading.html)
+                    const configBase64 = decodeURIComponent(celyavoxConfig);
+                    const configString = atob(configBase64);
+                    const config = JSON.parse(configString);
+                    console.log('✅ Configuration CelyaVox chargée depuis l\'URL (base64 décodée)');
+                    console.log('📝 Paramètres reçus:', Object.keys(config));
+                    
+                    // Appliquer chaque paramètre dans localStorage
+                    for (const [key, value] of Object.entries(config)) {
+                        localStorage.setItem(key, value);
+                        if (key === 'profileName' || key === 'SipDomain' || key === 'SipUsername') {
+                            console.log(`  ✅ ${key} = ${value.substring(0, 50)}`);
+                        }
+                    }
+                    console.log('✅ Configuration CelyaVox appliquée au localStorage');
+                    
+                    // Nettoyer l'URL en supprimant le hash
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    console.log('✅ Hash supprimé de l\'URL');
+                    
+                    // Initialiser
+                    localStorage.setItem("profileUserID", uID());
+                    
+                    // Recharger l'application après l'application de la configuration SAML
+                    console.log('🔄 Rechargement de l\'application...');
+                    location.reload();
+                    
+                    return;  // Config appliquée, ne pas continuer avec Teams
+                } catch (e) {
+                    console.error('❌ Erreur parsing configuration CelyaVox:', e);
+                }
+            }
+            
+            // Sinon, charger la config Teams
             const teamsConfig = urlParams.get('teamsConfig');
             
             if (teamsConfig) {
@@ -348,7 +387,10 @@
             }
             
             let sipDomain = localStorage.getItem("SipDomain");
+            console.log('[DEBUG] checkAndLoadSipDomain() - SipDomain:', sipDomain);
+            
             if(!sipDomain){
+                console.log('[DEBUG] Pas de SipDomain, affichage du formulaire...');
                 const result = await showUrlDialog();
 
                 if(result.type === "cancel") {
@@ -382,6 +424,10 @@
         }
 
         document.addEventListener("DOMContentLoaded", () => {
+            // D'abord, charger la configuration depuis les paramètres d'URL (SAML ou Teams)
+            loadTeamsConfiguration();
+            
+            // Ensuite, vérifier et charger le domaine SIP
             checkAndLoadSipDomain();
         });
 

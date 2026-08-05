@@ -15,7 +15,7 @@
 
 // Global Settings
 // ===============
-const appversion = "1.0.6";
+const appversion = "1.0.7";
 const sipjsversion = "0.20.0";
 const electron_version_needed = "1.0.7"; // Version minimale de l'application Electron requise
 const navUserAgent = window.navigator.userAgent;  // TODO: change to Navigator.userAgentData
@@ -162,6 +162,7 @@ if (typeof window.onConfigUpdate === 'function') {
     console.log(`
 🔄 MISE À JOUR CONFIG REÇUE:`);
     console.log(`  config.ui:`, config.ui);
+    console.log(`  config.audio:`, config.audio);
     console.log(`  Mise à jour des UI FLAGS...`);
     
     DisableBuddies = config.ui?.disableBuddies ?? DisableBuddies;
@@ -176,6 +177,18 @@ if (typeof window.onConfigUpdate === 'function') {
   - DisableCallForward: ${DisableCallForward}
   - DisableGUISipAccount: ${DisableGUISipAccount}
 `);
+
+    // Appliquer la configuration audio (device et gain de sonnerie)
+    if (config.audio) {
+      console.log(`🔧 Application de la configuration audio...`);
+      if (config.audio.ringerOutputLabel) {
+        applyRingerDeviceFromConfig(config.audio.ringerOutputLabel);
+      }
+      if (config.audio.ringerGain !== null && config.audio.ringerGain !== undefined) {
+        applyRingerGainFromConfig(config.audio.ringerGain);
+      }
+    }
+
     // Appliquer les changements à l'UI
     console.log(`  Appel applyUIFlagsToUI() après 100ms...`);
     if (typeof window.applyUIFlagsToUI === 'function') {
@@ -351,7 +364,8 @@ let EnableTextDictate = (getDbItem("EnableTextDictate", "1") == "1");           
 let EnableRingtone = (getDbItem("EnableRingtone", "1") == "1");                         // Enables a ring tone when an inbound call comes in.  (media/Ringtone_1.mp3)
 let EnableAnswerBeep = (getDbItem("EnableAnswerBeep", "1") == "1");                     // Enables a beep sound when a call is answered/picked up
 let EnableHangupBeep = (getDbItem("EnableHangupBeep", "1") == "1");                     // Enables a beep sound when a call is hung up
-let BeepSound = getDbItem("BeepSound", "Alert");                                        // Selects which audio file to use for beep sounds (Alert, Busy_UK, Busy_US, CallWaiting, etc.)
+let BeepSound = getDbItem("BeepSound", "");                                             // Selects which audio file to use for beep sounds (Alert, Busy_UK, Busy_US, CallWaiting, etc.) - Empty by default for no sound
+let RingtoneFile = getDbItem("RingtoneFile", "Ringtone");                               // Selects which audio file to use for ringtone sounds (Ringtone, Alert, Tone_Busy_UK, Tone_Busy_US, etc.)
 let MaxBuddies = parseInt(getDbItem("MaxBuddies", 999));                                // Sets the Maximum number of buddies the system will accept. Older ones get deleted. (Considered when(after) adding buddies)
 let MaxBuddyAge = parseInt(getDbItem("MaxBuddyAge", 365));                              // Sets the Maximum age in days (by latest activity). Older ones get deleted. (Considered when(after) adding buddies)
 let AutoDeleteDefault = (getDbItem("AutoDeleteDefault", "1") == "1");                   // For automatically created buddies (inbound and outbound), should the buddy be set to AutoDelete.
@@ -460,6 +474,71 @@ function getSpeakerGain(){
 function getRingerGain(){
     return clampGain(localDB.getItem("RingerGain"), 1);
 }
+
+/**
+ * Applique le device de sonnerie depuis la configuration (label)
+ * Cherche le device correspondant au label et sauvegarde son deviceId
+ */
+async function applyRingerDeviceFromConfig(ringerOutputLabel) {
+  if (!ringerOutputLabel) {
+    console.log('ℹ️  Aucun ringerOutputLabel configuré, utilisation du device par défaut');
+    return;
+  }
+  
+  try {
+    console.log(`🔍 Recherche du device de sonnerie avec label: "${ringerOutputLabel}"`);
+    
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const ringerDevice = devices.find(d => 
+      d.kind === 'audiooutput' && 
+      (d.label === ringerOutputLabel || d.label.includes(ringerOutputLabel))
+    );
+    
+    if (ringerDevice) {
+      console.log(`✅ Device trouvé! Sauvegarde du deviceId: ${ringerDevice.deviceId}`);
+      console.log(`   Label: ${ringerDevice.label}`);
+      // Mise à jour du local storage uniquement si la clé n'existe pas déjà
+      if (!localDB.getItem("RingOutputId")) {
+        localDB.setItem("RingOutputId", ringerDevice.deviceId);
+        console.log(`✅ RingOutputId sauvegardé dans le local storage`);
+      } else {
+        console.log(`ℹ️  RingOutputId déjà présent dans le local storage, pas de modification`);
+      }
+    } else {
+      console.warn(`⚠️  Device avec label "${ringerOutputLabel}" non trouvé`);
+      console.log(`   Devices disponibles:`, devices.filter(d => d.kind === 'audiooutput').map(d => d.label));
+    }
+  } catch (err) {
+    console.error('❌ Erreur lors de la recherche du device de sonnerie:', err);
+  }
+}
+
+/**
+ * Applique le volume de la sonnerie depuis la configuration
+ */
+function applyRingerGainFromConfig(ringerGain) {
+  if (ringerGain === null || ringerGain === undefined) {
+    console.log('ℹ️  Aucun ringerGain configuré, utilisation du gain par défaut');
+    return;
+  }
+  
+  const gain = parseFloat(ringerGain);
+  if (!isFinite(gain)) {
+    console.warn('⚠️  ringerGain invalide:', ringerGain);
+    return;
+  }
+  
+  const clampedGain = Math.min(Math.max(gain, 0), 1);
+  console.log(`🔊 Application du gain de sonnerie: ${clampedGain} (depuis config: ${ringerGain})`);
+  // Mise à jour du local storage uniquement si la clé n'existe pas déjà
+  if (!localDB.getItem("RingerGain")) {
+    localDB.setItem("RingerGain", clampedGain.toString());
+    console.log(`✅ RingerGain sauvegardé dans le local storage`);
+  } else {
+    console.log(`ℹ️  RingerGain déjà présent dans le local storage, pas de modification`);
+  }
+}
+
 function formatDuration(seconds){
     var sec = Math.floor(parseFloat(seconds));
     if(sec < 0){
@@ -2453,6 +2532,7 @@ function InitUi(){
     }
 
     PreloadAudioFiles();
+    RestoreCustomRingtone();
 
     // Custom Web hook
     if(typeof web_hook_on_init !== 'undefined') web_hook_on_init();
@@ -2658,6 +2738,16 @@ function PreloadAudioFiles(){
     audioBlobs.EarlyMedia_Japan = { file : "Tone_EarlyMedia-Japan.mp3", url : hostingPrefix +"media/Tone_EarlyMedia-Japan.mp3" }
     audioBlobs.EarlyMedia_UK = { file : "Tone_EarlyMedia-UK.mp3", url : hostingPrefix +"media/Tone_EarlyMedia-UK.mp3" }
     audioBlobs.EarlyMedia_US = { file : "Tone_EarlyMedia-US.mp3", url : hostingPrefix +"media/Tone_EarlyMedia-US.mp3" }
+    audioBlobs.Tone_Busy_UK = { file : "Tone_Busy-UK.mp3", url : hostingPrefix +"media/Tone_Busy-UK.mp3" }
+    audioBlobs.Tone_Busy_US = { file : "Tone_Busy-US.mp3", url : hostingPrefix +"media/Tone_Busy-US.mp3" }
+    audioBlobs.Tone_CallWaiting = { file : "Tone_CallWaiting.mp3", url : hostingPrefix +"media/Tone_CallWaiting.mp3" }
+    audioBlobs.Tone_Congestion_UK = { file : "Tone_Congestion-UK.mp3", url : hostingPrefix +"media/Tone_Congestion-UK.mp3" }
+    audioBlobs.Tone_Congestion_US = { file : "Tone_Congestion-US.mp3", url : hostingPrefix +"media/Tone_Congestion-US.mp3" }
+    audioBlobs.Tone_EarlyMedia_Australia = { file : "Tone_EarlyMedia-Australia.mp3", url : hostingPrefix +"media/Tone_EarlyMedia-Australia.mp3" }
+    audioBlobs.Tone_EarlyMedia_European = { file : "Tone_EarlyMedia-European.mp3", url : hostingPrefix +"media/Tone_EarlyMedia-European.mp3" }
+    audioBlobs.Tone_EarlyMedia_Japan = { file : "Tone_EarlyMedia-Japan.mp3", url : hostingPrefix +"media/Tone_EarlyMedia-Japan.mp3" }
+    audioBlobs.Tone_EarlyMedia_UK = { file : "Tone_EarlyMedia-UK.mp3", url : hostingPrefix +"media/Tone_EarlyMedia-UK.mp3" }
+    audioBlobs.Tone_EarlyMedia_US = { file : "Tone_EarlyMedia-US.mp3", url : hostingPrefix +"media/Tone_EarlyMedia-US.mp3" }
     
     $.each(audioBlobs, function (i, item) {
         var oReq = new XMLHttpRequest();
@@ -2675,9 +2765,33 @@ function PreloadAudioFiles(){
     // console.log(audioBlobs);
 }
 
+// Restore custom ringtone from storage
+// =====================================
+function RestoreCustomRingtone() {
+    var customRingtoneData = getDbItem("CustomRingtone", null);
+    var customRingtoneName = getDbItem("CustomRingtoneName", "");
+    
+    if (customRingtoneData) {
+        try {
+            console.log("Restoring custom ringtone: " + customRingtoneName);
+            audioBlobs.CustomRingtone = {
+                file: customRingtoneName,
+                url: customRingtoneData,
+                blob: customRingtoneData
+            };
+        } catch(e) {
+            console.warn("Error restoring custom ringtone:", e);
+        }
+    }
+}
+
 // Play a beep sound for call answered/hung up events
-// ====================================================
+// ===================================================
 function playBeepSound() {
+    // If BeepSound is empty, don't play any sound
+    if(!BeepSound || BeepSound === "") {
+        return;
+    }
     // Use the selected beep sound, default to Alert if not found
     var selectedSound = audioBlobs[BeepSound] || audioBlobs.Alert;
     
@@ -2703,6 +2817,37 @@ function playBeepSound() {
             }
         } catch(e) {
             console.warn("Error playing beep sound:", e);
+        }
+    }
+}
+
+// Play a ringtone sound preview
+// =============================
+function playRingtonePreview() {
+    var selectedRingtone = audioBlobs[RingtoneFile] || audioBlobs.Ringtone;
+    
+    if(selectedRingtone && selectedRingtone.blob) {
+        try {
+            var ringer = new Audio(selectedRingtone.blob);
+            ringer.volume = getRingerGain();
+            ringer.preload = "auto";
+            ringer.loop = false;
+            ringer.oncanplaythrough = function(e) {
+                if (typeof ringer.sinkId !== 'undefined' && getRingerOutputID() != "default") {
+                    ringer.setSinkId(getRingerOutputID()).then(function() {
+                        console.log("Set sinkId to:", getRingerOutputID());
+                    }).catch(function(e){
+                        console.warn("Failed to apply setSinkId.", e);
+                    });
+                }
+                ringer.play().then(function(){
+                    // Ringtone is playing
+                }).catch(function(e){
+                    console.warn("Unable to play ringtone sound.", e);
+                }); 
+            }
+        } catch(e) {
+            console.warn("Error playing ringtone sound:", e);
         }
     }
 }
@@ -3533,8 +3678,9 @@ function ReceiveCall(session) {
             lineObj.SipSession.data.ringerObj = ringer;
         } else {
             // Play Ring Tone
-            console.log("Audio:", audioBlobs.Ringtone.url);
-            var ringer = new Audio(audioBlobs.Ringtone.blob);
+            var selectedRingtone = audioBlobs[RingtoneFile] || audioBlobs.Ringtone;
+            console.log("Audio:", selectedRingtone.url);
+            var ringer = new Audio(selectedRingtone.blob);
             ringer.volume = getRingerGain();
             ringer.preload = "auto";
             ringer.loop = true;
@@ -8877,6 +9023,9 @@ function ConferenceDial(lineNum){
         
                     $("#line-" + lineNum + "-msg").html(lang.conference_call_in_progress);
         
+                    // Mark the child session as conference so it won't be terminated on unhold
+                    session.data.childsession.data.isConference = true;
+        
                     JoinCallBtn.hide();
                     updateLineScroll(lineNum);
 
@@ -9050,8 +9199,8 @@ function unholdSession(lineNum) {
     }
     console.log("Taking call off hold:", lineNum);
     
-    // Arrêter le transfert en cours s'il existe
-    if(session.data.childsession){
+    // Arrêter le transfert en cours s'il existe (mais pas si c'est une conférence)
+    if(session.data.childsession && !session.data.childsession.data.isConference){
         console.log("Transfer in progress, terminating before unhold - childSession state:", session.data.childsession.state);
         try {
             session.data.childsession.bye().catch(function(error){
@@ -9068,6 +9217,8 @@ function unholdSession(lineNum) {
             console.warn("Error in transfer termination:", e);
             session.data.childsession = null;
         }
+    } else if(session.data.childsession && session.data.childsession.data.isConference){
+        console.log("Conference call in progress, keeping child session active");
     }
     
     // Toujours restaurer l'UI du transfert quand on reprend l'appel
@@ -13498,7 +13649,13 @@ function ShowMyProfile(){
     AudioVideoHtml += "<div class=Settings_VolumeOutput_Container><div id=Settings_RingerOutput class=Settings_VolumeOutput></div></div>";
     AudioVideoHtml += "<div class=UiText>"+ (lang.ringer_gain || "Gain sonnerie") +":</div>";
     AudioVideoHtml += "<div class=Settings_GainRow><input id=Settings_RingerGain type=range min=0 max=100 step=1><span id=Settings_RingerGainValue class=Settings_GainValue></span></div>";
-    AudioVideoHtml += "<div><button class=roundButtons id=preview_ringer_play><i class=\"fa fa-play\"></i></button></div>";
+    AudioVideoHtml += "</div>";
+
+    AudioVideoHtml += "<div id=RingtoneSoundSection>";
+    AudioVideoHtml += "<div class=UiText>"+ (lang.ringtone || "Sonnerie") +":</div>";
+    AudioVideoHtml += "<div style=\"text-align:center\"><select id=ringtoneSound style=\"width:100%\"></select></div>";
+    AudioVideoHtml += "<div><button class=roundButtons id=preview_ringtone_play><i class=\"fa fa-play\"></i></button></div>";
+    AudioVideoHtml += "<div style=\"margin-top:10px\"><input id=customRingtoneUpload type=file accept=\".wav,.mp3,.ogg,.m4a\" style=\"width:100%\"></div>";
     AudioVideoHtml += "</div>";
 
     AudioVideoHtml += "<div id=BeepSoundSection>";
@@ -13793,18 +13950,39 @@ function ShowMyProfile(){
         action: function(){
             Confirm("Effacer toutes les données locales ? Cette action est irréversible. Vous devrez entierement reconfigurer votre compte", "Réinitialisation", function(){
                 try{
+                    // Effacer le localStorage local
                     if (typeof localDB !== 'undefined' && typeof localDB.clear === 'function'){
                         localDB.clear();
                     } else if (typeof window !== 'undefined' && window.localStorage && typeof window.localStorage.clear === 'function'){
                         window.localStorage.clear();
                     }
+                    
+                    // ============================================================
+                    // NOUVEAU: Effacer aussi les données persistées SAML (userData)
+                    // ============================================================
+                    if (typeof window !== 'undefined' && window.electron && window.electron.clearAuthSession) {
+                        console.log('🗑️ Suppression des données SAML persistées...');
+                        window.electron.clearAuthSession().then(function(result) {
+                            if (result.success) {
+                                console.log('✅ Session SAML persistée effacée');
+                            } else {
+                                console.warn('⚠️ Erreur lors de l\'effacement de la session SAML:', result.error);
+                            }
+                        }).catch(function(err) {
+                            console.error('❌ Erreur lors de l\'appel clearAuthSession:', err);
+                        });
+                    }
+                    
                 } catch(e){
                     console.warn("Échec de la réinitialisation du stockage local", e);
                 }
-                // Recharger l'application pour repartir avec les valeurs par défaut
-                window.location.reload();
-            }, function(){
-                // Annulé par l'utilisateur
+                
+                // Attendre un peu pour que l'appel IPC soit traité, puis recharger
+                setTimeout(function() {
+                    console.log('🔄 Rechargement de l\'application...');
+                    alert("Configuration réinitialisée.\n\nVeuillez redémarrer manuellement l'application pour appliquer les changements complètement.");
+                    window.location.reload();
+                }, 500);
             });
         }
     });
@@ -13944,79 +14122,7 @@ function ShowMyProfile(){
             window.SettingsOutputAudio = audioObj;
         });
 
-        var playRingButton = $("#preview_ringer_play");
-        // Ringtone Button Press
-        playRingButton.click(function(){
-    
-            try{
-                window.SettingsRingerAudio.pause();
-            } 
-            catch(e){}
-            window.SettingsRingerAudio = null;
-    
-            try{
-                var tracks = window.SettingsRingerStream.getTracks();
-                tracks.forEach(function(track) {
-                    track.stop();
-                });
-            }
-            catch(e){}
-            window.SettingsRingerStream = null;
-    
-            try{
-                var soundMeter = window.SettingsRingerStreamMeter;
-                soundMeter.stop();
-            }
-            catch(e){}
-            window.SettingsRingerStreamMeter = null;
-    
-            // Load Sample
-            console.log("Audio:", audioBlobs.Ringtone.url);
-            var audioObj = new Audio(audioBlobs.Ringtone.blob);
-            audioObj.volume = readGainFromInput(ringerGainInput, getRingerGain());
-            audioObj.preload = "auto";
-            audioObj.onplay = function(){
-                var outputStream = new MediaStream();
-                if (typeof audioObj.captureStream !== 'undefined') {
-                    outputStream = audioObj.captureStream();
-                } 
-                else if (typeof audioObj.mozCaptureStream !== 'undefined') {
-                    return;
-                    // BUG: mozCaptureStream() in Firefox does not work the same way as captureStream()
-                    // the actual sound does not play out to the speakers... its as if the mozCaptureStream
-                    // removes the stream from the <audio> object.
-                    outputStream = audioObj.mozCaptureStream();
-                }
-                else if (typeof audioObj.webkitCaptureStream !== 'undefined') {
-                    outputStream = audioObj.webkitCaptureStream();
-                }
-                else {
-                    console.warn("Cannot display Audio Levels")
-                    return;
-                }
-                // Monitor Output
-                window.SettingsRingerStream = outputStream;
-                window.SettingsRingerStreamMeter = MeterSettingsOutput(outputStream, "Settings_RingerOutput", "width", 50);
-            }
-            audioObj.oncanplaythrough = function(e) {
-                if (typeof audioObj.sinkId !== 'undefined') {
-                    audioObj.setSinkId(selectRingDevice.val()).then(function() {
-                        console.log("Set sinkId to:", selectRingDevice.val());
-                    }).catch(function(e){
-                        console.warn("Failed not apply setSinkId.", e);
-                    });
-                }
-                // Play
-                audioObj.play().then(function(){
-                    // Audio Is Playing
-                }).catch(function(e){
-                    console.warn("Unable to play audio file", e);
-                });
-                console.log("Playing sample audio file... ");
-            }
-    
-            window.SettingsRingerAudio = audioObj;
-        });
+
 
         // Audio Playback Source
         var selectAudioScr = $("#playbackSrc");
@@ -14489,15 +14595,15 @@ function ShowMyProfile(){
         var selectBeepSound = $("#beepSound");
         
         // Populate beep sound options
-        var beepSoundList = ["Alert", "Busy_UK", "Busy_US", "CallWaiting", "Congestion_UK", "Congestion_US", 
+        var beepSoundList = ["", "Alert", "Busy_UK", "Busy_US", "CallWaiting", "Congestion_UK", "Congestion_US", 
                              "EarlyMedia_European", "EarlyMedia_UK", "EarlyMedia_US", "EarlyMedia_Australia", "EarlyMedia_Japan"];
         
         $.each(beepSoundList, function(i, soundName) {
-            if(audioBlobs[soundName]) {
+            if(soundName === "" || audioBlobs[soundName]) {
                 var option = $('<option/>');
                 option.prop("value", soundName);
                 if(BeepSound == soundName) option.prop("selected", true);
-                option.text(soundName);
+                option.text(soundName === "" ? "None (No sound)" : soundName);
                 selectBeepSound.append(option);
             }
         });
@@ -14516,6 +14622,116 @@ function ShowMyProfile(){
         playBeepButton.click(function(){
             console.log("Playing beep sound preview: ", BeepSound);
             playBeepSound();
+        });
+
+        // Ringtone Sound Selection
+        var selectRingtoneSound = $("#ringtoneSound");
+        
+        // Populate ringtone sound options
+        var ringtoneSoundList = ["Ringtone", "Alert", "Tone_Busy_UK", "Tone_Busy_US", "Tone_CallWaiting", "Tone_Congestion_UK", "Tone_Congestion_US", 
+                                 "Tone_EarlyMedia_European", "Tone_EarlyMedia_UK", "Tone_EarlyMedia_US", "Tone_EarlyMedia_Australia", "Tone_EarlyMedia_Japan"];
+        
+        $.each(ringtoneSoundList, function(i, soundName) {
+            if(audioBlobs[soundName]) {
+                var option = $('<option/>');
+                option.prop("value", soundName);
+                if(RingtoneFile == soundName) option.prop("selected", true);
+                option.text(soundName);
+                selectRingtoneSound.append(option);
+            }
+        });
+        
+        // Handle ringtone sound change
+        selectRingtoneSound.change(function(){
+            console.log("Call to change Ringtone Sound ("+ this.value +")");
+            RingtoneFile = this.value;
+            localDB.setItem("RingtoneFile", RingtoneFile);
+            // Play the selected ringtone sound
+            playRingtonePreview();
+        });
+        
+        // Ringtone Sound Preview Button
+        var playRingtoneButton = $("#preview_ringtone_play");
+        playRingtoneButton.click(function(){
+            console.log("Playing ringtone sound preview: ", RingtoneFile);
+            playRingtonePreview();
+        });
+
+        // Custom Ringtone Upload Handler
+        var customRingtoneUpload = $("#customRingtoneUpload");
+        customRingtoneUpload.change(function() {
+            var filesArray = $(this).prop('files');
+            
+            if (filesArray.length == 1) {
+                var fileObj = filesArray[0];
+                var fileName = fileObj.name;
+                var fileSize = fileObj.size;
+                
+                // Check file size (max 10MB)
+                if (fileSize <= 10485760) {
+                    console.log("Loading custom ringtone: " + fileName + " of size: " + fileSize + " bytes");
+                    
+                    var reader = new FileReader();
+                    reader.onload = function(event) {
+                        try {
+                            // Store the custom ringtone as base64
+                            var base64Data = event.target.result;
+                            localDB.setItem("CustomRingtone", base64Data);
+                            localDB.setItem("CustomRingtoneName", fileName);
+                            
+                            // Convert base64 to blob for audioBlobs
+                            var base64String = base64Data.split(',')[1];
+                            var binaryString = atob(base64String);
+                            var bytes = new Uint8Array(binaryString.length);
+                            for (var i = 0; i < binaryString.length; i++) {
+                                bytes[i] = binaryString.charCodeAt(i);
+                            }
+                            var blob = new Blob([bytes], { type: fileObj.type });
+                            
+                            // Add to audioBlobs
+                            audioBlobs.CustomRingtone = { 
+                                file: fileName, 
+                                url: URL.createObjectURL(blob),
+                                blob: base64Data
+                            };
+                            
+                            // Add or update "Custom" option in select
+                            var customOption = selectRingtoneSound.find('option[value="CustomRingtone"]');
+                            if (customOption.length === 0) {
+                                var option = $('<option/>');
+                                option.prop("value", "CustomRingtone");
+                                option.text("Custom (" + fileName + ")");
+                                selectRingtoneSound.append(option);
+                            } else {
+                                customOption.text("Custom (" + fileName + ")");
+                            }
+                            
+                            // Select the custom ringtone
+                            selectRingtoneSound.val("CustomRingtone");
+                            RingtoneFile = "CustomRingtone";
+                            localDB.setItem("RingtoneFile", RingtoneFile);
+                            
+                            console.log("Custom ringtone loaded successfully");
+                            Alert(lang.alert_custom_ringtone_loaded || "Sonnerie personnalisée chargée avec succès!", lang.ok || "OK");
+                            
+                            // Clear the input
+                            customRingtoneUpload.val('');
+                        } catch(e) {
+                            console.error("Error processing custom ringtone:", e);
+                            Alert(lang.alert_custom_ringtone_error || "Erreur lors du chargement de la sonnerie personnalisée", lang.error);
+                        }
+                    };
+                    reader.onerror = function() {
+                        console.error("Error reading file");
+                        Alert(lang.alert_file_read_error || "Erreur lors de la lecture du fichier", lang.error);
+                    };
+                    
+                    reader.readAsDataURL(fileObj);
+                } else {
+                    Alert(lang.alert_file_size_ringtone || "Le fichier dépasse 10 Mo, il ne peut pas être chargé", lang.error);
+                    customRingtoneUpload.val('');
+                }
+            }
         });
 
         // Appearance
