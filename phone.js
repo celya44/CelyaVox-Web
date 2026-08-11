@@ -15,7 +15,7 @@
 
 // Global Settings
 // ===============
-const appversion = "1.0.7";
+const appversion = "1.0.8";
 const sipjsversion = "0.20.0";
 const electron_version_needed = "1.0.7"; // Version minimale de l'application Electron requise
 const navUserAgent = window.navigator.userAgent;  // TODO: change to Navigator.userAgentData
@@ -34,7 +34,7 @@ let welcomeScreen = null;
  * "en.json" is always loaded by default
  */
 let loadAlternateLang = (getDbItem("loadAlternateLang", "0") == "1"); // Enables searching and loading for the additional language packs other thAan /en.json
-const availableLang = ["fr", "ja", "zh-hans", "zh", "ru", "tr", "nl", "es", "de", "pl", "pt-br"]; // Defines the language packs (.json) available in /lang/ folder
+const availableLang = ["fr", "ja", "zh-hans", "zh", "ru", "tr", "nl", "es", "de", "pl", "pt-br", "it"]; // Defines the language packs (.json) available in /lang/ folder
 
 /**
  * Image Assets
@@ -1337,6 +1337,73 @@ $(document).ready(function () {
         window.addEventListener('storage', onLocalStorageEvent, false);
     }
 
+/**
+ * Fill UI labels with translations
+ */
+function fillTranslationLabels(){
+    // Fill navigation labels
+    var navLabels = {
+        'label-history': 'history',
+        'label-contacts': 'contacts',
+        'label-favorites': 'favorites',
+        'label-visual_voicemail': 'visual_voicemail',
+        'label-agent': 'agent',
+        'label-dashboard': 'dashboard',
+        'label-advanced_functions': 'advanced_functions'
+    };
+    
+    for(var elemId in navLabels){
+        var elem = document.getElementById(elemId);
+        var langKey = navLabels[elemId];
+        if(elem && lang && lang[langKey]){
+            elem.textContent = lang[langKey];
+        }
+    }
+    
+    // Fill aria-labels for navigation buttons
+    var navButtons = {
+        'nav-clavier': 'keyboard',
+        'nav-historique': 'history',
+        'nav-contacts': 'contacts',
+        'nav-favoris': 'favorites',
+        'nav-voicemail': 'visual_voicemail',
+        'nav-agent': 'agent',
+        'nav-dashboard': 'dashboard',
+        'nav-fonction-avance': 'advanced_functions'
+    };
+    
+    for(var btnId in navButtons){
+        var btn = document.getElementById(btnId);
+        var langKey = navButtons[btnId];
+        if(btn && lang && lang[langKey]){
+            btn.setAttribute('aria-label', lang[langKey]);
+        }
+    }
+    
+    // Fill close and resize buttons
+    var closeBtn = document.getElementById('sidepanel-close');
+    var rightCloseBtn = document.getElementById('sidepanel-right-close');
+    var resizeTitle = document.getElementById('sidepanel-right-resizer');
+    var leftResizeTitle = document.getElementById('sidepanel-right-left-resizer');
+    
+    if(closeBtn && lang && lang['close']){
+        closeBtn.textContent = '×';
+        closeBtn.setAttribute('aria-label', lang['close']);
+        closeBtn.setAttribute('title', lang['close']);
+    }
+    if(rightCloseBtn && lang && lang['close']){
+        rightCloseBtn.textContent = '×';
+        rightCloseBtn.setAttribute('aria-label', lang['close']);
+        rightCloseBtn.setAttribute('title', lang['close']);
+    }
+    if(resizeTitle && lang && lang['resize']){
+        resizeTitle.setAttribute('title', lang['resize']);
+    }
+    if(leftResizeTitle && lang && lang['resize']){
+        leftResizeTitle.setAttribute('title', lang['resize']);
+    }
+}
+
     // Load Language File
     // ==================
     $.getJSON(hostingPrefix + "lang/en.json", function(data){
@@ -1351,15 +1418,18 @@ $(document).ready(function () {
                     lang = alt_data;
                 }).always(function() {
                     console.log("Alternate Language Pack loaded: ", lang);
+                    fillTranslationLabels();
                     InitUi();
                 });
             }
             else {
                 console.log("No Alternate Language Found.");
+                fillTranslationLabels();
                 InitUi();
             }
         }
         else {
+            fillTranslationLabels();
             InitUi();
         }
     });
@@ -2048,7 +2118,7 @@ function EditBuddyWindow(buddy){
     var html = "<div border=0 class='UiWindowField'>";
 
     html += "<div id=ImageCanvas style=\"width:150px; height:150px\"></div>";
-    html += "<div style=\"float:left; margin-left:200px;\"><input id=fileUploader type=file></div>";
+    html += "<div style=\"float:left; margin-left:200px;\"><label for='fileUploader' style='display:inline-block; padding:8px 16px; background-color:#007bff; color:white; border-radius:4px; cursor:pointer;'>" + (lang && lang['choose_file'] ? lang['choose_file'] : 'Choose file') + "</label><span id='fileUploaderLabel' style='margin-left:10px; color:#666;'>" + (lang && lang['no_file_chosen'] ? lang['no_file_chosen'] : 'No file chosen') + "</span><input id=fileUploader type=file style='display:none;'></div>";
     html += "<div style=\"margin-top: 50px\"></div>";
     
     html += "<div class=UiText>"+ lang.full_name +":</div>";
@@ -2266,6 +2336,7 @@ function EditBuddyWindow(buddy){
                         });
                     }
                     reader.readAsDataURL(fileObj);
+                    $("#fileUploaderLabel").text(fileName);
                 }
                 else {
                     Alert(lang.alert_file_size, lang.error);
@@ -13655,7 +13726,7 @@ function ShowMyProfile(){
     AudioVideoHtml += "<div class=UiText>"+ (lang.ringtone || "Sonnerie") +":</div>";
     AudioVideoHtml += "<div style=\"text-align:center\"><select id=ringtoneSound style=\"width:100%\"></select></div>";
     AudioVideoHtml += "<div><button class=roundButtons id=preview_ringtone_play><i class=\"fa fa-play\"></i></button></div>";
-    AudioVideoHtml += "<div style=\"margin-top:10px\"><input id=customRingtoneUpload type=file accept=\".wav,.mp3,.ogg,.m4a\" style=\"width:100%\"></div>";
+    AudioVideoHtml += "<div style=\"margin-top:10px\"><label for='customRingtoneUpload' style='display:inline-block; padding:8px 16px; background-color:#007bff; color:white; border-radius:4px; cursor:pointer;'>" + (lang && lang['choose_file'] ? lang['choose_file'] : 'Choose file') + "</label><span id='customRingtoneUploadLabel' style='margin-left:10px; color:#666;'>" + (lang && lang['no_file_chosen'] ? lang['no_file_chosen'] : 'No file chosen') + "</span><input id=customRingtoneUpload type=file accept=\".wav,.mp3,.ogg,.m4a\" style='display:none;'></div>";
     AudioVideoHtml += "</div>";
 
     AudioVideoHtml += "<div id=BeepSoundSection>";
@@ -13725,7 +13796,7 @@ function ShowMyProfile(){
 
     var AppearanceHtml = "<div id=Appearance_Html style=\"display:none\">"; 
     AppearanceHtml += "<div id=ImageCanvas style=\"width:150px; height:150px\"></div>";
-    AppearanceHtml += "<div style=\"margin-top:50px;\"><input id=fileUploader type=file></div>";
+    AppearanceHtml += "<div style=\"margin-top:50px;\"><label for='fileUploader' style='display:inline-block; padding:8px 16px; background-color:#007bff; color:white; border-radius:4px; cursor:pointer;'>" + (lang && lang['choose_file'] ? lang['choose_file'] : 'Choose file') + "</label><span id='fileUploaderLabel' style='margin-left:10px; color:#666;'>" + (lang && lang['no_file_chosen'] ? lang['no_file_chosen'] : 'No file chosen') + "</span><input id=fileUploader type=file style='display:none;'></div>";
     AppearanceHtml += "<div style=\"margin-top:10px\"></div>";
 
     // SIP & XMPP vCard
@@ -14712,6 +14783,7 @@ function ShowMyProfile(){
                             localDB.setItem("RingtoneFile", RingtoneFile);
                             
                             console.log("Custom ringtone loaded successfully");
+                            $("#customRingtoneUploadLabel").text(fileName);
                             Alert(lang.alert_custom_ringtone_loaded || "Sonnerie personnalisée chargée avec succès!", lang.ok || "OK");
                             
                             // Clear the input
@@ -14730,7 +14802,10 @@ function ShowMyProfile(){
                 } else {
                     Alert(lang.alert_file_size_ringtone || "Le fichier dépasse 10 Mo, il ne peut pas être chargé", lang.error);
                     customRingtoneUpload.val('');
+                    $("#customRingtoneUploadLabel").text(lang && lang['no_file_chosen'] ? lang['no_file_chosen'] : 'No file chosen');
                 }
+            } else {
+                $("#customRingtoneUploadLabel").text(lang && lang['no_file_chosen'] ? lang['no_file_chosen'] : 'No file chosen');
             }
         });
 
@@ -14775,6 +14850,7 @@ function ShowMyProfile(){
             
                         // Use onload for this
                         reader.readAsDataURL(fileObj);
+                        $("#fileUploaderLabel").text(fileName);
                     }
                     else {
                         Alert(lang.alert_file_size, lang.error);

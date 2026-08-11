@@ -585,36 +585,36 @@
 
         <!-- Bandeau bas moderne (sans action) -->
         <nav class="bottom-nav" role="navigation" aria-label="Navigation principale">
-            <button class="bottom-nav__item" id="nav-clavier" type="button" aria-label="Clavier">
+            <button class="bottom-nav__item" id="nav-clavier" type="button" aria-label="">
                 <i class="fa fa-home bottom-nav__icon" aria-hidden="true"></i>
             </button>
-            <button class="bottom-nav__item" id="nav-historique" type="button" aria-label="Historique">
+            <button class="bottom-nav__item" id="nav-historique" type="button" aria-label="">
                 <i class="fa fa-history bottom-nav__icon" aria-hidden="true"></i>
-                <span class="bottom-nav__label">Historique</span>
+                <span id="label-history" class="bottom-nav__label"></span>
             </button>
-            <button class="bottom-nav__item" id="nav-contacts" type="button" aria-label="Contacts">
+            <button class="bottom-nav__item" id="nav-contacts" type="button" aria-label="">
                 <i class="fa fa-address-book bottom-nav__icon" aria-hidden="true"></i>
-                <span class="bottom-nav__label">Contacts</span>
+                <span id="label-contacts" class="bottom-nav__label"></span>
             </button>
-            <button class="bottom-nav__item" id="nav-favoris" type="button" aria-label="Favoris">
+            <button class="bottom-nav__item" id="nav-favoris" type="button" aria-label="">
                 <i class="fa fa-star bottom-nav__icon" aria-hidden="true"></i>
-                <span class="bottom-nav__label">Favoris</span>
+                <span id="label-favorites" class="bottom-nav__label"></span>
             </button>
-            <button class="bottom-nav__item" id="nav-voicemail" type="button" aria-label="Visual Voicemail" style="display:none;">
+            <button class="bottom-nav__item" id="nav-voicemail" type="button" aria-label="" style="display:none;">
                 <i class="fa fa-inbox bottom-nav__icon" aria-hidden="true"></i>
-                <span class="bottom-nav__label">Visual Voicemail</span>
+                <span id="label-visual_voicemail" class="bottom-nav__label"></span>
             </button>
-            <button class="bottom-nav__item" id="nav-agent" type="button" aria-label="Agent" style="display:none;">
+            <button class="bottom-nav__item" id="nav-agent" type="button" aria-label="" style="display:none;">
                 <i class="fa fa-headphones bottom-nav__icon" aria-hidden="true"></i>
-                <span class="bottom-nav__label">Agent</span>
+                <span id="label-agent" class="bottom-nav__label"></span>
             </button>
-            <button class="bottom-nav__item" id="nav-dashboard" type="button" aria-label="Dashboard" style="display:none;">
+            <button class="bottom-nav__item" id="nav-dashboard" type="button" aria-label="" style="display:none;">
                 <i class="fa fa-tachometer bottom-nav__icon" aria-hidden="true"></i>
-                <span class="bottom-nav__label">Dashboard</span>
+                <span id="label-dashboard" class="bottom-nav__label"></span>
             </button>
-            <button class="bottom-nav__item" id="nav-fonction-avance" type="button" aria-label="Fonction avancé">
+            <button class="bottom-nav__item" id="nav-fonction-avance" type="button" aria-label="">
                 <i class="fa fa-cogs bottom-nav__icon" aria-hidden="true"></i>
-                <span class="bottom-nav__label">Fonctions</span>
+                <span id="label-advanced_functions" class="bottom-nav__label"></span>
             </button>
         </nav>
 
@@ -622,19 +622,19 @@
         <aside id="sidepanel" class="sidepanel" aria-hidden="true" aria-live="polite">
             <div class="sidepanel__header">
                 <span id="sidepanel-title" class="sidepanel__title"></span>
-                <button id="sidepanel-close" class="sidepanel__close" type="button" aria-label="Fermer">&times;</button>
+                <button id="sidepanel-close" class="sidepanel__close" type="button" aria-label="" title=""></button>
             </div>
             <div id="sidepanel-content" class="sidepanel__content"></div>
         </aside>
 
         <!-- Panneau latéral droit (Dashboard) -->
         <aside id="sidepanel-right" class="sidepanel sidepanel--right" aria-hidden="true" aria-live="polite">
-            <div id="sidepanel-right-left-resizer" class="sidepanel__left-resizer" title="Redimensionner" aria-hidden="true"></div>
-            <div id="sidepanel-right-resizer" class="sidepanel__resizer" title="Redimensionner" aria-hidden="true"></div>
+            <div id="sidepanel-right-left-resizer" class="sidepanel__left-resizer" title="" aria-hidden="true"></div>
+            <div id="sidepanel-right-resizer" class="sidepanel__resizer" title="" aria-hidden="true"></div>
             <div class="sidepanel__header">
                 <span id="sidepanel-right-title" class="sidepanel__title"></span>
                 <div id="sidepanel-right-actions" style="display:flex; align-items:center; margin-left:auto; margin-right:8px;"></div>
-                <button id="sidepanel-right-close" class="sidepanel__close" type="button" aria-label="Fermer">&times;</button>
+                <button id="sidepanel-right-close" class="sidepanel__close" type="button" aria-label="" title=""></button>
             </div>
             <div id="sidepanel-right-content" class="sidepanel__content"></div>
         </aside>
@@ -839,15 +839,16 @@
                 }
             }
             if(items.length === 0){
-                return '<div style="padding:12px;">Aucun appel trouvé.</div>';
+                var noCallMsg = lang && lang['no_call_found'] ? lang['no_call_found'] : 'No call found.';
+                return '<div style="padding:12px;">' + noCallMsg + '</div>';
             }
-            var html = ''+
-            '<table class="sp-table">'+
+            var html = ''
+            + '<table class="sp-table">'+
             '<thead><tr>'+
-            '<th>Date</th>'+
-            '<th>Numéro</th>'+
-            '<th>Durée</th>'+
-            '<th>Statut</th>'+
+            '<th>' + (lang && lang['date'] ? lang['date'] : 'Date') + '</th>'+
+            '<th>' + (lang && lang['number'] ? lang['number'] : 'Number') + '</th>'+
+            '<th>' + (lang && lang['duration'] ? lang['duration'] : 'Duration') + '</th>'+
+            '<th>' + (lang && lang['status'] ? lang['status'] : 'Status') + '</th>'+
             '</tr></thead><tbody>';
             for(var i=0;i<items.length;i++){
                 var it = items[i] || {};
@@ -896,7 +897,7 @@
                 var isAnswered = (stNorm === 'ANSWERED');
                 var color = isAnswered ? '#16a34a' : '#dc2626';
                 var dirIcon = isOut ? 'fa-level-up' : 'fa-level-down';
-                var titleTxt = (isOut ? 'Appel sortant' : 'Appel entrant') + ' — ' + (isAnswered ? 'répondu' : 'non répondu');
+                var titleTxt = (isOut ? (lang && lang['outgoing_call'] ? lang['outgoing_call'] : 'Outgoing Call') : (lang && lang['incoming_call'] ? lang['incoming_call'] : 'Incoming Call')) + ' — ' + (isAnswered ? (lang && lang['answered'] ? lang['answered'] : 'Answered') : (lang && lang['not_answered'] ? lang['not_answered'] : 'Not answered'));
                 var rotClass = isOut ? 'history-diag-45 history-diag-45--up' : 'history-diag-45 history-diag-45--down';
                 var combinedIcon = '<i class="fa '+ dirIcon +' '+ rotClass +'" style="color:'+ color +'; font-size:18px;" title="'+ escHtml(titleTxt) +'" aria-label="'+ escHtml(titleTxt) +'" aria-hidden="false"></i>';
                 
@@ -965,7 +966,8 @@
                 catch(e){ return '<div style="padding:12px;">'+ escHtml(String(items)) +'</div>'; }
             }
             if(items.length === 0){
-                return '<div style="padding:12px;">Aucun message vocal.</div>';
+                var noVoicemailMsg = lang && lang['no_voicemail'] ? lang['no_voicemail'] : 'No voicemail.';
+                return '<div style="padding:12px;">' + noVoicemailMsg + '</div>';
             }
             ctx = ctx || {};
             var audioBase = ctx.audioBase || '';
@@ -975,10 +977,10 @@
             var html = ''+
                 '<table class="sp-table">'+
                 '<thead><tr>'+
-                '<th>Date</th>'+
-                '<th>Appelant</th>'+
-                '<th>Durée</th>'+
-                '<th>Lecture</th>'+
+                '<th>' + (lang && lang['date'] ? lang['date'] : 'Date') + '</th>'+
+                '<th>' + (lang && lang['caller'] ? lang['caller'] : 'Caller') + '</th>'+
+                '<th>' + (lang && lang['duration'] ? lang['duration'] : 'Duration') + '</th>'+
+                '<th>' + (lang && lang['playback'] ? lang['playback'] : 'Playback') + '</th>'+
                 '</tr></thead><tbody>';
             for(var i=0;i<items.length;i++){
                 var it = items[i] || {};
@@ -1031,7 +1033,7 @@
                         var delBtn = '';
                         if(msgId && delBase){
                             delBtn = '<button type="button" class="vm-delete sp-button-danger" data-id="'+ escHtml(msgId) +'" data-endpoint="'+ escHtml(delBase) +'" data-ext="'+ escHtml(apiExt || '') +'" data-key="'+ escHtml(apiKey || '') +'"'
-                                + ' title="Supprimer" aria-label="Supprimer ce message">'
+                                + ' title="' + (lang && lang['delete'] ? lang['delete'] : 'Delete') + '" aria-label="' + (lang && lang['delete'] ? lang['delete'] : 'Delete') + ' ce message">'
                                 + '<i class="fa fa-trash"></i>'
                                 + '</button>';
                         }
@@ -1084,7 +1086,9 @@
             }catch(e){}
             var apiKey = getCfg(["api_key","ApiKey","API_KEY"]) || '';
 
-            openPanel("Visual Voicemail", '<div style="padding:12px;">Chargement…</div>', 'voicemail');
+            var voicemailTitle = lang && lang['visual_voicemail'] ? lang['visual_voicemail'] : 'Visual Voicemail';
+            var loadingMsg = lang && lang['loading'] ? lang['loading'] : 'Loading…';
+            openPanel(voicemailTitle, '<div style="padding:12px;">' + loadingMsg + '</div>', 'voicemail');
 
             domain = normalizeApiDomain(domain);
 
@@ -1161,7 +1165,7 @@
                         try{ setupVoicemailPlayers(); }catch(e){}
                     })
                     .catch(function(err){
-                        contentEl.innerHTML = '<div class="sp-error" style="padding:12px;">Impossible de charger la messagerie ('+ escHtml(err.message) +').</div>';
+                        contentEl.innerHTML = '<div class="sp-error" style="padding:12px;">' + (lang && lang['error_loading_voicemail'] ? lang['error_loading_voicemail'] : 'Cannot load voicemail') + ' ('+ escHtml(err.message) +').</div>';
                     });
             }catch(e){
                 contentEl.innerHTML = '<div class="sp-error" style="padding:12px;">URL invalide: '+ escHtml(e && e.message ? e.message : String(e)) +'</div>';
@@ -1524,10 +1528,13 @@
         var apiExt = (ext ? String(ext) : "");
         try{ if(/^99/.test(apiExt)) apiExt = apiExt.substring(2); }catch(e){}
 
-            openPanel("Historique des appels", '<div style="padding:12px;">Chargement…</div>', 'history');
+            var historyTitle = lang && lang['history_of_calls'] ? lang['history_of_calls'] : 'Call History';
+            var loadingMsg = lang && lang['loading'] ? lang['loading'] : 'Loading…';
+            openPanel(historyTitle, '<div style="padding:12px;">' + loadingMsg + '</div>', 'history');
 
             if(!domain || !ext){
-                contentEl.innerHTML = '<div class="sp-error" style="padding:12px;">Configuration manquante: domaine ou extension introuvable.</div>';
+                var missingMsg = lang && lang['missing_config'] ? lang['missing_config'] : 'Missing configuration';
+                contentEl.innerHTML = '<div class="sp-error" style="padding:12px;">' + missingMsg + '</div>';
                 return;
             }
             domain = normalizeApiDomain(domain);
@@ -1552,7 +1559,7 @@
                     bindHistoryClicks();
                 })
                 .catch(function(err){
-                    contentEl.innerHTML = '<div class="sp-error" style="padding:12px;">Impossible de charger l\'historique ('+ escHtml(err.message) +').<br/>Vérifiez le domaine, la clé API et les droits CORS.</div>';
+                    contentEl.innerHTML = '<div class="sp-error" style="padding:12px;">' + (lang && lang['error_loading_history'] ? lang['error_loading_history'] : 'Cannot load history') + ' ('+ escHtml(err.message) +').<br/>Check domain, API key and CORS rights.</div>';
                 });
         }
 
@@ -1808,7 +1815,9 @@
                 document.head.appendChild(css);
             })();
 
-            openPanel('Fonctions avancées', '<div style="padding:12px;">Chargement…</div>', 'functions');
+            var advancedTitle = lang && lang['advanced_functions'] ? lang['advanced_functions'] : 'Advanced Functions';
+            var loadingMsg = lang && lang['loading'] ? lang['loading'] : 'Loading…';
+            openPanel(advancedTitle, '<div style="padding:12px;">' + loadingMsg + '</div>', 'functions');
 
             function buildAdvancedFallbackHtml(message){
                 return ''
@@ -1912,13 +1921,13 @@
                     var dndBlock = '<div id="dndBlockContainer" class="dndBlockContainer" style="' + dndBlockStyle + '">'
                         + '<div class="sp-card" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;">'
                         +   '<div>'
-                        +       '<div style="font-weight:500;">Ne pas déranger (DND)</div>'
-                        +       '<div class="sp-muted" style="font-size:12px;">Empêche la sonnerie et les appels entrants.</div>'
+                        +       '<div style="font-weight:500;">' + (lang && lang['do_not_disturb'] ? lang['do_not_disturb'] : 'Do not disturb (DND)') + '</div>'
+                        +       '<div class="sp-muted" style="font-size:12px;">' + (lang && lang['prevent_ringing'] ? lang['prevent_ringing'] : 'Prevents ringing and incoming calls.') + '</div>'
                         +   '</div>'
                         +   '<label class="toggle-switch" aria-label="DND" role="switch">'
                         +       '<input id="toggleDnd" type="checkbox" '+ (state.dnd ? 'checked' : '') +' />'
                         +       '<span class="slider" aria-hidden="true"></span>'
-                        +       '<span class="toggle-label">Actif</span>'
+                        +       '<span class="toggle-label">' + (lang && lang['active'] ? lang['active'] : 'Active') + '</span>'
                         +   '</label>'
                         + '</div>'
                         + '</div>';
@@ -1928,17 +1937,17 @@
                         + '<div class="sp-card">'
                         +   '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;">'
                         +       '<div>'
-                        +           '<div style="font-weight:500;">Renvoi d\'appel (CFU)</div>'
-                        +           '<div class="sp-muted" style="font-size:12px;">Transfère tous les appels vers un numéro.</div>'
+                        +           '<div style="font-weight:500;">' + (lang && lang['call_forwarding'] ? lang['call_forwarding'] : 'Call forwarding (CFU)') + '</div>'
+                        +           '<div class="sp-muted" style="font-size:12px;">' + (lang && lang['forward_all_calls'] ? lang['forward_all_calls'] : 'Forwards all calls to a number.') + '</div>'
                         +       '</div>'
                         +       '<label class="toggle-switch" aria-label="CFU" role="switch">'
                         +           '<input id="toggleCf" type="checkbox" '+ (state.cfEnabled ? 'checked' : '') +' />'
                         +           '<span class="slider" aria-hidden="true"></span>'
-                        +           '<span class="toggle-label">Actif</span>'
+                        +           '<span class="toggle-label">' + (lang && lang['active'] ? lang['active'] : 'Active') + '</span>'
                         +       '</label>'
                         +   '</div>'
                         +   '<div>'
-                        +       '<label for="cfNumber" class="sp-label">Numéro de renvoi</label>'
+                        +       '<label for="cfNumber" class="sp-label">' + (lang && lang['forward_number'] ? lang['forward_number'] : 'Forward number') + '</label>'
                         +       '<input id="cfNumber" type="text" value="'+ escHtml(state.cfNumber || '') +'" class="sp-input" />'
                         +   '</div>'
                         + '</div>'
@@ -1948,10 +1957,10 @@
                         + '<div style="padding:12px;">'
                         +   '<div style="margin-bottom:12px;">'
                         +       '<button type="button" class="sp-button-surface" style="width:100%; padding:10px 12px; border-radius:8px; text-align:left; font-size:14px; line-height:18px;" onclick="try{ ShowMyProfile ? ShowMyProfile() : null; }catch(e){ console.warn(e); }">'
-                        +           '<span class="sp-section-title" style="font-size:14px; line-height:18px;">Configurer l\'extension</span>'
+                        +           '<span class="sp-section-title" style="font-size:14px; line-height:18px;">' + (lang && lang['configure_extension'] ? lang['configure_extension'] : 'Configure extension') + '</span>'
                         +       '</button>'
                         +   '</div>'
-                        +   '<div class="sp-section-title" style="margin-bottom:12px;">Paramètres de ligne</div>'
+                        +   '<div class="sp-section-title" style="margin-bottom:12px;">' + (lang && lang['line_parameters'] ? lang['line_parameters'] : 'Line parameters') + '</div>'
                         +   dndBlock
                         +   cfuBlock
                         +   '<div id="advancedMsg" class="sp-muted" style="margin-top:6px; font-size:12px;"></div>'
@@ -1999,7 +2008,7 @@
                         function saveForward(){
                             if(saving){ needResave = true; return; }
                             saving = true;
-                            setMsg('Enregistrement…', false);
+                            setMsg(lang && lang['saving'] ? lang['saving'] : 'Saving…', false);
                             try{
                                 var base = normalizeApiUrl(localStorage.getItem('ForwardEditUrl')) || (domain.replace(/\/$/, '') + '/celyavox-api/forward/forward_edit');
                                 var u = new URL(base, window.location.origin);
@@ -2022,8 +2031,8 @@
                                 try{ if(cfCbLocal) cfCbLocal.disabled = true; }catch(e){}
                                 fetch(u.toString(), { method:'GET' })
                                     .then(function(res){ if(!res.ok) throw new Error('HTTP ' + res.status); return res.json().catch(function(){ return {}; }); })
-                                    .then(function(){ setMsg('Enregistré.', false); })
-                                    .catch(function(err){ setMsg('Erreur: ' + (err && err.message ? err.message : String(err)), true); })
+                                    .then(function(){ setMsg(lang && lang['saved'] ? lang['saved'] : 'Saved.', false); })
+                                    .catch(function(err){ setMsg((lang && lang['error'] ? lang['error'] : 'Error') + ': ' + (err && err.message ? err.message : String(err)), true); })
                                     .finally(function(){
                                         saving = false;
                                         try{ if(dndCb) dndCb.disabled = false; }catch(e){}
@@ -2060,7 +2069,8 @@
                     sizePanelToContent();
                 })
                 .catch(function(err){
-                    var msg = 'Impossible de charger les fonctions avancées (' + (err && err.message ? err.message : String(err)) + ').';
+                    var errorMsg = lang && lang['error_loading_functions'] ? lang['error_loading_functions'] : 'Cannot load functions';
+                    var msg = errorMsg + ' (' + (err && err.message ? err.message : String(err)) + ').';
                     contentEl.innerHTML = buildAdvancedFallbackHtml(msg);
                 });
         }
@@ -2144,19 +2154,19 @@
                 if(String(type) === 'dashboard'){
                     rightActionsEl.innerHTML = ""
                         + "<div style='position:relative; display:flex; align-items:center; gap:8px;'>"
-                        +   "<input id='dashboard-card-filter' type='text' placeholder='Filtrer les cartes...' autocomplete='off'"
+                        +   "<input id='dashboard-card-filter' type='text' placeholder='" + (lang && lang['filter_cards'] ? lang['filter_cards'] : 'Filter cards...') + "' autocomplete='off'"
                         +          " style='width:170px; max-width:28vw; height:30px; padding:0 8px; border:1px solid rgba(0,0,0,0.18); border-radius:6px; font-size:12px;' />"
                         +   "<div style='position:relative; display:flex; flex-direction:column; align-items:flex-end;'>"
                         +     "<button id='dashboard-add-btn' type='button' class='roundButtons' title='Ajouter un poste'>"
                         +         "<i class='fa fa-user-plus'></i>"
                         +     "</button>"
                         +     "<div id='dashboard-search-zone' style='display:none; position:absolute; top:calc(100% + 6px); right:0; width:260px; max-width:70vw; background:#fff; border:1px solid rgba(0,0,0,0.12); border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.12); padding:8px; z-index:10060;'>"
-                        +         "<label for='txtFindDashboardFavorite' class='sp-label'>Rechercher dans l'annuaire</label>"
+                        +     "<label for='txtFindDashboardFavorite' class='sp-label'>" + (lang && lang['search_in_directory'] ? lang['search_in_directory'] : 'Search in directory') + "</label>"
                         +         "<div style='margin:4px 0 6px;'>"
                         +             "<input id='dashboard-short-only' type='checkbox' />"
-                        +             "<label for='dashboard-short-only' style='font-size:12px; cursor:pointer;'>Num Court</label>"
+                        +             "<label for='dashboard-short-only' style='font-size:12px; cursor:pointer;'>" + (lang && lang['short_num'] ? lang['short_num'] : 'Short num') + "</label>"
                         +         "</div>"
-                        +         "<input id='txtFindDashboardFavorite' type='text' placeholder='Nom ou extension...' autocomplete='off' class='sp-input' />"
+                        +         "<input id='txtFindDashboardFavorite' type='text' placeholder='" + (lang && lang['name_or_extension'] ? lang['name_or_extension'] : 'Name or extension...') + "' autocomplete='off' class='sp-input' />"
                         +         "<div id='dashboardResults' style='margin-top:8px; min-height:24px; max-height:220px; overflow:auto;'></div>"
                         +     "</div>"
                         +   "</div>"
@@ -2636,7 +2646,7 @@
             listEl.style.borderRadius = '';
             if(postes.length === 0){
                 listEl.style.height = '140px';
-                listEl.innerHTML = "<div class='sp-muted' style='padding:6px 0;'>Aucun poste. Utilisez le bouton + pour en ajouter.</div>";
+                listEl.innerHTML = "<div class='sp-muted' style='padding:6px 0;'>" + (lang && lang['no_extensions'] ? lang['no_extensions'] : 'No extensions') + "</div>";
                 return;
             }
             var m = gm;
@@ -2686,7 +2696,7 @@
                 listEl.style.height = '140px';
                 listEl.innerHTML = filterText
                     ? "<div class='sp-muted' style='padding:6px 0;'>Aucune carte ne correspond au filtre.</div>"
-                    : "<div class='sp-muted' style='padding:6px 0;'>Aucun poste. Utilisez le bouton + pour en ajouter.</div>";
+                    : "<div class='sp-muted' style='padding:6px 0;'>" + (lang && lang['no_extensions'] ? lang['no_extensions'] : 'No extensions') + "</div>";
             } else {
                 listEl.innerHTML = html;
                 listEl.style.height = Math.max(140, maxBottom + m.pad) + 'px';
@@ -2880,8 +2890,8 @@
                 var name = escHtml(dashboardBestName(it) || '');
                 var already = inMap[ext] === true;
                 var addBtn = already
-                    ? "<button type='button' class='sp-button-surface' disabled style='padding:4px 8px; border-radius:6px; opacity:.6;'>Ajoute</button>"
-                    : "<button type='button' class='dashboard-poste-add sp-button-add' data-ext='"+ escHtml(ext) +"' data-name='"+ name +"'><i class='fa fa-plus'></i> Ajouter</button>";
+                    ? "<button type='button' class='sp-button-surface' disabled style='padding:4px 8px; border-radius:6px; opacity:.6;'>" + (lang && lang['added'] ? lang['added'] : 'Added') + "</button>"
+                    : "<button type='button' class='dashboard-poste-add sp-button-add' data-ext='"+ escHtml(ext) +"' data-name='"+ name +"'><i class='fa fa-plus'></i> " + (lang && lang['add'] ? lang['add'] : 'Add') + "</button>";
                 h += "<li class='sp-item' style='padding:8px 0;'>"
                   +   "<div style='font-weight:500;'>"+ name +" <span class='sp-badge'>Ext "+ escHtml(dashboardStripPrefix(ext)) +"</span></div>"
                   +   addBtn
@@ -2985,9 +2995,11 @@
                 wrap.style.boxShadow = '0 8px 22px rgba(0,0,0,0.16)';
                 wrap.style.minWidth = '140px';
                 wrap.style.overflow = 'hidden';
+                var renameLabel = lang && lang['rename'] ? lang['rename'] : 'Rename';
+                var deleteLabel = lang && lang['delete'] ? lang['delete'] : 'Delete';
                 wrap.innerHTML = ''
-                    + '<button id="dashboard-tab-menu-rename" type="button" class="sp-button-surface" style="display:block; width:100%; text-align:left; border:0; border-bottom:1px solid rgba(0,0,0,0.08); padding:8px 10px;">Renommer</button>'
-                    + '<button id="dashboard-tab-menu-delete" type="button" class="sp-button-surface" style="display:block; width:100%; text-align:left; border:0; padding:8px 10px; color:#b91c1c;">Supprimer</button>';
+                    + '<button id="dashboard-tab-menu-rename" type="button" class="sp-button-surface" style="display:block; width:100%; text-align:left; border:0; border-bottom:1px solid rgba(0,0,0,0.08); padding:8px 10px;">' + renameLabel + '</button>'
+                    + '<button id="dashboard-tab-menu-delete" type="button" class="sp-button-surface" style="display:block; width:100%; text-align:left; border:0; padding:8px 10px; color:#b91c1c;">' + deleteLabel + '</button>';
                 host.appendChild(wrap);
                 return wrap;
             }
@@ -3442,14 +3454,16 @@
                 var out = (rightPanel || rightContentEl).querySelector('#dashboardResults');
                 if(!out) return;
                 var q = String(inp.value || '').trim();
+                var minCharsMsg = lang && lang['enter_at_least_2_chars'] ? lang['enter_at_least_2_chars'] : 'Enter at least 2 characters...';
                 if(q.length < 2){
                     dashboardLastSearchItems = [];
-                    out.innerHTML = "<div class='sp-muted'>Saisissez au moins 2 caracteres...</div>";
+                    out.innerHTML = "<div class='sp-muted'>" + minCharsMsg + "</div>";
                     return;
                 }
                 if(dashboardSearchTimer) clearTimeout(dashboardSearchTimer);
+                var searchingMsg = lang && lang['searching'] ? lang['searching'] : 'Searching...';
                 dashboardSearchTimer = setTimeout(function(){
-                    out.innerHTML = "<div><span class='fa fa-circle-o-notch fa-spin'></span> Recherche...</div>";
+                    out.innerHTML = "<div><span class='fa fa-circle-o-notch fa-spin'></span> " + searchingMsg + "</div>";
                     dashboardSearchContactsApi(q).then(function(resp){
                         if(!resp || resp.ok !== true){
                             out.innerHTML = "<div class='sp-error'>"+ escHtml(resp && resp.error ? resp.error : 'Erreur recherche') +"</div>";
@@ -3474,9 +3488,11 @@
                 if(!out) return;
                 var inp = (rightPanel || rightContentEl).querySelector('#txtFindDashboardFavorite');
                 var q = String((inp && inp.value) || '').trim();
+                var minCharsMsg = lang && lang['enter_at_least_2_chars'] ? lang['enter_at_least_2_chars'] : 'Enter at least 2 characters...';
+                var launchMsg = lang && lang['launch_search'] ? lang['launch_search'] : 'Launch a search...';
                 out.innerHTML = q.length < 2
-                    ? "<div class='sp-muted'>Saisissez au moins 2 caracteres...</div>"
-                    : "<div class='sp-muted'>Lancez une recherche...</div>";
+                    ? "<div class='sp-muted'>" + minCharsMsg + "</div>"
+                    : "<div class='sp-muted'>" + launchMsg + "</div>";
             });
 
             rightContentEl.addEventListener('dragstart', function(ev){
@@ -3609,14 +3625,14 @@
         bindRightPanelResizeHandle();
 
         var btns = [
-            { id: "nav-clavier", title: "Clavier" },
-            { id: "nav-historique", title: "Historique" },
-            { id: "nav-voicemail", title: "Visual Voicemail" },
-            { id: "nav-agent", title: "Agent" },
-            { id: "nav-dashboard", title: "Dashboard" },
-            { id: "nav-contacts", title: "Contacts" },
-            { id: "nav-favoris", title: "Favoris" },
-            { id: "nav-fonction-avance", title: "Fonctions avancées" }
+            { id: "nav-clavier", langKey: "keyboard" },
+            { id: "nav-historique", langKey: "history" },
+            { id: "nav-voicemail", langKey: "visual_voicemail" },
+            { id: "nav-agent", langKey: "agent" },
+            { id: "nav-dashboard", langKey: "dashboard" },
+            { id: "nav-contacts", langKey: "contacts" },
+            { id: "nav-favoris", langKey: "favorites" },
+            { id: "nav-fonction-avance", langKey: "advanced_functions" }
         ];
         btns.forEach(function(b){
             var el = $(b.id);
@@ -3633,8 +3649,8 @@
                             +     "<div id='dashboard-tabs' style='display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;'></div>"
                             +     "<div id='dashboard-postes-list' style='flex:1 1 auto; position:relative; display:block; min-height:180px; padding-bottom:4px;'></div>"
                             +       "<div id='dashboard-tab-menu' style='display:none; position:fixed; z-index:10050; background:#fff; border:1px solid rgba(0,0,0,0.16); border-radius:8px; box-shadow:0 8px 22px rgba(0,0,0,0.16); min-width:140px; overflow:hidden;'>"
-                            +           "<button id='dashboard-tab-menu-rename' type='button' class='sp-button-surface' style='display:block; width:100%; text-align:left; border:0; border-bottom:1px solid rgba(0,0,0,0.08); padding:8px 10px;'>Renommer</button>"
-                            +           "<button id='dashboard-tab-menu-delete' type='button' class='sp-button-surface' style='display:block; width:100%; text-align:left; border:0; padding:8px 10px; color:#b91c1c;'>Supprimer</button>"
+                            +           "<button id='dashboard-tab-menu-rename' type='button' class='sp-button-surface' style='display:block; width:100%; text-align:left; border:0; border-bottom:1px solid rgba(0,0,0,0.08); padding:8px 10px;'>" + (lang && lang['rename'] ? lang['rename'] : 'Rename') + "</button>"
+                            +           "<button id='dashboard-tab-menu-delete' type='button' class='sp-button-surface' style='display:block; width:100%; text-align:left; border:0; padding:8px 10px; color:#b91c1c;'>" + (lang && lang['delete'] ? lang['delete'] : 'Delete') + "</button>"
                             +       "</div>"
                             +     "</div>"
                             +   "</div>"
@@ -3661,31 +3677,37 @@
                         window.ShowDial();
                     } else {
                         // Repli: si ShowDial n'est pas chargé, garder le comportement précédent
-                        openPanel(b.title, "<div style='padding:12px'>"+ b.title +"</div>", 'default');
+                        var title = lang && lang[b.langKey] ? lang[b.langKey] : 'Keyboard';
+                        openPanel(title, "<div style='padding:12px'>"+ title +"</div>", 'default');
                     }
                 } else if(b.id === 'nav-historique'){
                     loadHistory();
                 } else if(b.id === 'nav-voicemail'){
                     loadVoicemail();
                 } else if(b.id === 'nav-agent'){
-                    openPanel("Agent", "<div style='padding:12px;'>Panneau Agent</div>", 'agent');
+                    var agentTitle = lang && lang['agent_panel'] ? lang['agent_panel'] : 'Agent Panel';
+                    openPanel(agentTitle, "<div style='padding:12px;'>"+ agentTitle +"</div>", 'agent');
                 } else if(b.id === 'nav-fonction-avance'){
                     loadAdvancedFunctions();
                 } else {
                     if(b.id === 'nav-contacts'){
                         // Affiche une zone dédiée pour la recherche/contact: divFindBuddy avec un champ txtFindBuddy
                         var personalContactsDisplay = (typeof DisableBuddies !== 'undefined' && DisableBuddies) ? 'display:none;' : '';
+                        var contactsTitle = lang && lang[b.langKey] ? lang[b.langKey] : 'Contacts';
+                        var searchLabel = lang && lang['search_contact'] ? lang['search_contact'] : 'Search contact';
+                        var personalContactsLabel = lang && lang['personal_contacts'] ? lang['personal_contacts'] : 'Personal Contacts';
+                        var addContactTitle = lang && lang['add_contact'] ? lang['add_contact'] : 'Add contact';
                         openPanel(
-                            b.title,
+                            contactsTitle,
                             "<div id='divFindBuddyContacts' style='padding:12px; overflow-x:hidden;'>"
-                            + "<label for='txtFindBuddyContacts' class='sp-label'>Rechercher un contact</label>"
-                            + "<input id='txtFindBuddyContacts' type='text' placeholder='Nom (ex: jpr), numéro…' autocomplete='off' class='sp-input' />"
+                            + "<label for='txtFindBuddyContacts' class='sp-label'>" + searchLabel + "</label>"
+                            + "<input id='txtFindBuddyContacts' type='text' placeholder='" + (lang && lang['search_contacts'] ? lang['search_contacts'] : 'Name (ex: jpr), number...') + "' autocomplete='off' class='sp-input' />"
                             + "<div style='display:flex; align-items:center; justify-content:space-between; margin:10px 0 8px 0;'>"
                             + "<div id='ldapResultsContacts' style='margin-top:6px; min-height:24px;'></div>"
                             + "</div>"
                             + "<div style='display:flex; align-items:center; justify-content:space-between; margin-top:6px;" + personalContactsDisplay + "'>"
-                            + "<div class='sp-section-title'>Contacts personnels</div>"
-                            + "<button type='button' class='roundButtons' id='BtnAddSomeonePanel' title='Ajouter un contact' onclick=\"try{ AddSomeoneWindow(''); closePanel(); }catch(e){ console.warn(e); }\"><i class='fa fa-user-plus'></i></button>"
+                            + "<div class='sp-section-title'>" + personalContactsLabel + "</div>"
+                            + "<button type='button' class='roundButtons' id='BtnAddSomeonePanel' title='" + addContactTitle + "' onclick=\"try{ AddSomeoneWindow(''); closePanel(); }catch(e){ console.warn(e); }\"><i class='fa fa-user-plus'></i></button>"
                             + "</div>"
                             + "<div id='personalContactsList' class='personalContactsSection' style='margin-top:10px;" + personalContactsDisplay + "'></div>"
                             + "</div>",
@@ -3736,7 +3758,7 @@
                                 }) : [];
 
                                 if(items.length === 0){
-                                    listEl.innerHTML = "<div class='sp-muted' style='font-size:13px;'>Aucun contact personnel.</div>";
+                                    listEl.innerHTML = "<div class='sp-muted' style='font-size:13px;'>" + (lang && lang['no_personal_contacts'] ? lang['no_personal_contacts'] : 'No personal contacts') + "</div>";
                                     return;
                                 }
 
@@ -3760,8 +3782,8 @@
                                     }
                                     h += "</div>";
                                     h += "<div style='display:flex; align-items:center; gap:0; margin-left:auto; padding-right:0;'>";
-                                    h += "<button type='button' class='roundButtons' title='Modifier ce contact' style='width:26px; height:26px; line-height:26px; font-size:14px; padding:0;' onclick=\"try{ editPersonalContact('"+ cid +"'); }catch(e){ console.warn(e); }\"><i class='fa fa-pencil'></i></button>";
-                                    h += "<button type='button' class='roundButtons' title='Supprimer ce contact' style='width:26px; height:26px; line-height:26px; font-size:14px; padding:0;' onclick=\"try{ removePersonalContact('"+ cid +"'); }catch(e){ console.warn(e); }\"><i class='fa fa-trash'></i></button>";
+                                    h += "<button type='button' class='roundButtons' title='" + (lang && lang['edit_contact'] ? lang['edit_contact'] : 'Edit contact') + "' style='width:26px; height:26px; line-height:26px; font-size:14px; padding:0;' onclick=\"try{ editPersonalContact('"+ cid +"'); }catch(e){ console.warn(e); }\"><i class='fa fa-pencil'></i></button>";
+                                    h += "<button type='button' class='roundButtons' title='" + (lang && lang['delete_contact'] ? lang['delete_contact'] : 'Delete contact') + "' style='width:26px; height:26px; line-height:26px; font-size:14px; padding:0;' onclick=\"try{ removePersonalContact('"+ cid +"'); }catch(e){ console.warn(e); }\"><i class='fa fa-trash'></i></button>";
                                     h += "</div>";
                                     h += "</div>";
                                     h += "</li>";
@@ -3816,9 +3838,9 @@
                                         + "<div style='font-weight:500;'>"+ name +"</div>"
                                         + (nums.length ? nums.map(function(n){
                                               var label = '';
-                                              if(mobList.indexOf(n) !== -1) label = " <span class=\"sp-badge sp-badge--mobile\">Mobile</span>";
-                                              else if(telList.indexOf(n) !== -1) label = " <span class=\"sp-badge\">Téléphone</span>";
-                                              else if(homeList.indexOf(n) !== -1) label = " <span class=\"sp-badge sp-badge--home\">Domicile</span>";
+                                              if(mobList.indexOf(n) !== -1) label = " <span class=\"sp-badge sp-badge--mobile\">" + (lang && lang['mobile'] ? lang['mobile'] : 'Mobile') + "</span>";
+                                              else if(telList.indexOf(n) !== -1) label = " <span class=\"sp-badge\">" + (lang && lang['phone'] ? lang['phone'] : 'Phone') + "</span>";
+                                              else if(homeList.indexOf(n) !== -1) label = " <span class=\"sp-badge sp-badge--home\">" + (lang && lang['home'] ? lang['home'] : 'Home') + "</span>";
                                               var callBtn = "<button type=\"button\" class=\"ldap-call sp-link\" data-number=\""+ escHtml(n) +"\">"+ escHtml(n) +"</button>";
                                               return "<div class='sp-text' style='margin-top:2px;'><i class='fa fa-phone'></i> " + callBtn + label + "</div>";
                                             }).join('') : "")
@@ -3874,8 +3896,10 @@
                             if(!input || !results) return;
                             var doSearch = debounce(function(){
                                 var q = input.value || '';
-                                if(q.trim().length < 2){ results.innerHTML = "<div>Saisissez au moins 2 caractères…</div>"; sizePanelToContent(); return; }
-                                results.innerHTML = "<div><span class='fa fa-circle-o-notch fa-spin'></span> Recherche…</div>";
+                                var minCharsMsg = lang && lang['enter_at_least_2_chars'] ? lang['enter_at_least_2_chars'] : 'Enter at least 2 characters…';
+                                var searchingMsg = lang && lang['searching'] ? lang['searching'] : 'Searching…';
+                                if(q.trim().length < 2){ results.innerHTML = "<div>" + minCharsMsg + "</div>"; sizePanelToContent(); return; }
+                                results.innerHTML = "<div><span class='fa fa-circle-o-notch fa-spin'></span> " + searchingMsg + "</div>";
                                 window.searchLdapBySn(q).then(function(resp){
                                     if(!resp || resp.ok !== true){
                                         var msg = (resp && resp.error) ? resp.error : 'Erreur inconnue';
@@ -3899,19 +3923,19 @@
                             b.title,
                             "<div id='favoritesPanel' style='padding:12px; overflow-x:hidden;'>"
                             +   "<div style='display:flex; align-items:center; gap:10px; margin-bottom:10px;'>"
-                            +       "<div id='favHelp' class='sp-muted' style='font-size:13px;'>Ajoutez un favori depuis l'annuaire.</div>"
-                            +       "<button id='favAddBtn' type='button' class='roundButtons' title='Ajouter un favori'>"
+                            +       "<div id='favHelp' class='sp-muted' style='font-size:13px;'>" + (lang && lang['add_favorite'] ? lang['add_favorite'] : 'Add a favorite from the directory.') + "</div>"
+                            +       "<button id='favAddBtn' type='button' class='roundButtons' title='" + (lang && lang['add'] ? lang['add'] : 'Add') + "'>"
                             +           "<i class='fa fa-user-plus'></i>"
                             +       "</button>"
                             +   "</div>"
                             +   "<div id='favList' style='margin-bottom:12px;'></div>"
                             +   "<div id='favSearchZone' style='display:none;'>"
-                            +       "<label for='txtFindFavorite' class='sp-label'>Rechercher dans l'annuaire</label>"
+                            +       "<label for='txtFindFavorite' class='sp-label'>" + (lang && lang['search_in_directory'] ? lang['search_in_directory'] : 'Search in directory') + "</label>"
                             +       "<div style='margin:4px 0 6px;'>"
                             +           "<input id='fav-short-only' type='checkbox' />"
-                            +           "<label for='fav-short-only' style='font-size:12px; cursor:pointer;'>Num Court</label>"
+                            +           "<label for='fav-short-only' style='font-size:12px; cursor:pointer;'>" + (lang && lang['short_num'] ? lang['short_num'] : 'Short num') + "</label>"
                             +       "</div>"
-                            +       "<input id='txtFindFavorite' type='text' placeholder='Nom ou extension…' autocomplete='off' class='sp-input' />"
+                            +       "<input id='txtFindFavorite' type='text' placeholder='" + (lang && lang['name_or_extension'] ? lang['name_or_extension'] : 'Name or extension...') + "' autocomplete='off' class='sp-input' />"
                             +       "<div id='favResults' style='margin-top:10px; min-height:24px;'></div>"
                             +   "</div>"
                             + "</div>"
@@ -4052,7 +4076,7 @@
                                     var mobiles = toList(it.mobile).map(String);
                                     var email = escHtml(it.mail || it.email || '');
                                     var extLbl = "<span class=\"sp-badge\">Ext " + esc(stripPrefixForDisplay(ext)) + "</span>";
-                                    var addBtn = "<button type=\"button\" class=\"fav-add sp-button-add\" data-ext=\""+ esc(ext) +"\" data-name=\""+ name +"\" data-mobile=\""+ escHtml(mobiles[0]||'') +"\" data-email=\""+ email +"\"><i class='fa fa-plus'></i> Ajouter</button>";
+                                    var addBtn = "<button type=\"button\" class=\"fav-add sp-button-add\" data-ext=\""+ esc(ext) +"\" data-name=\""+ name +"\" data-mobile=\""+ escHtml(mobiles[0]||'') +"\" data-email=\""+ email +"\"><i class='fa fa-plus'></i> " + (lang && lang['add'] ? lang['add'] : 'Add') + "</button>";
                                     h += "<li class='sp-item' style='padding:10px 0;'>"
                                         +   "<div style='font-weight:500;'>"+ name +" "+ extLbl +"</div>"
                                         +   (mobiles.length? ("<div class='sp-text' style='margin-top:2px;'><i class='fa fa-phone'></i> "+ escHtml(mobiles[0]) +"</div>") : "")
@@ -4072,7 +4096,8 @@
 
                             function renderFavList(items){
                                 if(!Array.isArray(items) || items.length === 0){
-                                    return "<div class='sp-muted' style='font-size:13px;'>Aucun favori pour le moment.</div>";
+                                    var noFavMsg = lang && lang['no_favorites'] ? lang['no_favorites'] : 'No favorites for now.';
+                                    return "<div class='sp-muted' style='font-size:13px;'>" + noFavMsg + "</div>";
                                 }
                                 var h = "<ul style='list-style:none; margin:0; padding:0;'>";
                                 for(var i=0;i<items.length;i++){
@@ -4346,8 +4371,10 @@
                             var doSearchFav = debounce(function(){
                                 if(!favInput || !favRes) return;
                                 var q = favInput.value || '';
-                                if(q.trim().length < 2){ favLastSearchItems = []; favRes.innerHTML = "<div>Saisissez au moins 2 caractères…</div>"; sizePanelToContent(); return; }
-                                favRes.innerHTML = "<div><span class='fa fa-circle-o-notch fa-spin'></span> Recherche…</div>";
+                                var minCharsMsg = lang && lang['enter_at_least_2_chars'] ? lang['enter_at_least_2_chars'] : 'Enter at least 2 characters…';
+                                var searchingMsg = lang && lang['searching'] ? lang['searching'] : 'Searching…';
+                                if(q.trim().length < 2){ favLastSearchItems = []; favRes.innerHTML = "<div>" + minCharsMsg + "</div>"; sizePanelToContent(); return; }
+                                favRes.innerHTML = "<div><span class='fa fa-circle-o-notch fa-spin'></span> " + searchingMsg + "</div>";
                                 window.searchContactsApi(q).then(function(resp){
                                     if(!resp || resp.ok !== true){
                                         favRes.innerHTML = "<div class='sp-error'>"+ esc(resp && resp.error ? resp.error : 'Erreur recherche') +"</div>";
@@ -4372,9 +4399,11 @@
                                         bindAddButtons();
                                     } else {
                                         var q = String((favInput && favInput.value) || '').trim();
+                                        var minCharsMsg = lang && lang['enter_at_least_2_chars'] ? lang['enter_at_least_2_chars'] : 'Enter at least 2 characters…';
+                                        var launchMsg = lang && lang['launch_search'] ? lang['launch_search'] : 'Launch a search…';
                                         favRes.innerHTML = q.length < 2
-                                            ? "<div>Saisissez au moins 2 caractères…</div>"
-                                            : "<div>Lancez une recherche…</div>";
+                                            ? "<div>" + minCharsMsg + "</div>"
+                                            : "<div>" + launchMsg + "</div>";
                                     }
                                     sizePanelToContent();
                                 });

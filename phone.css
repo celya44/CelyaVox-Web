@@ -16,13 +16,11 @@
     color: #222222;
     font-size: 42px;
 }
-@media (prefers-color-scheme: dark) {
-    .loading{
-        background-color: #222222;
-    }
-    .loading span{
-        color: #FFFFFF;
-    }
+.theme-dark .loading{
+    background-color: #222222;
+}
+.theme-dark .loading span{
+    color: #FFFFFF;
 }
 
 /* CSS_Ui */
@@ -188,14 +186,12 @@
 .history-diag-45--up { transform: rotate(45deg); }
 .history-diag-45--down { transform: rotate(45deg); }
 
-@media (prefers-color-scheme: dark) {
-    .bottom-nav {
-        background: rgba(30, 30, 30, 0.85);
-        border-top-color: rgba(255,255,255,0.08);
-    }
-    .bottom-nav__item { color: #e5e7eb; }
-    .bottom-nav__item:hover { background: rgba(255,255,255,0.06); }
+.theme-dark .bottom-nav {
+    background: rgba(30, 30, 30, 0.85);
+    border-top-color: rgba(255,255,255,0.08);
 }
+.theme-dark .bottom-nav__item { color: #e5e7eb; }
+.theme-dark .bottom-nav__item:hover { background: rgba(255,255,255,0.06); }
 
 /* Panneau latéral gauche */
 .sidepanel {
@@ -610,17 +606,13 @@ body.sidepanel-right-resizing * {
 .status-tip:hover::after,
 .status-tip:hover::before { opacity: 1; }
 
-@media (prefers-color-scheme: dark) {
-    .status-tip::after { background: rgba(229, 231, 235, 0.95); color: #111827; }
-    .status-tip::before { border-top-color: rgba(229, 231, 235, 0.95); }
-}
+.theme-dark .status-tip::after { background: rgba(229, 231, 235, 0.95); color: #111827; }
+.theme-dark .status-tip::before { border-top-color: rgba(229, 231, 235, 0.95); }
 
-@media (prefers-color-scheme: dark) {
-    .sidepanel { background: #1e1e1e; }
-    .sidepanel__header {
-        background: #1e1e1e;
-        border-bottom-color: rgba(255,255,255,0.1);
-    }
+.theme-dark .sidepanel { background: #1e1e1e; }
+.theme-dark .sidepanel__header {
+    background: #1e1e1e;
+    border-bottom-color: rgba(255,255,255,0.1);
 }
 
 .UiDeleteButton{
